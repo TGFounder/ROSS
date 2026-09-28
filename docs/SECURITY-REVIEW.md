@@ -43,6 +43,6 @@ was obtained. Users must verify the separately published archive checksum and
 accepted tag/commit. Behavioral instructions do not replace OS permissions,
 sandboxing, identity, authorization, tenant isolation, or application controls.
 
-No unresolved material finding remains in the reviewed candidate code. Final
-Windows and Linux claims still depend on the final candidate CI commit passing,
-not only the earlier checkpoint.
+No unresolved material finding remains in the reviewed candidate code. The
+corrected candidate checkpoint passed the macOS, Ubuntu, Windows PowerShell,
+and official reference-validation jobs.
