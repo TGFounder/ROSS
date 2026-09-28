@@ -49,16 +49,20 @@ always-loaded kernel. Valid dispositions are **CANDIDATE**, **ACCEPTED**, and
   eval cases, a six-task matched benchmark, and small CI.
 - **Evaluation:** structural and POSIX gates pass; the first hosted checkpoint
   passed macOS, Ubuntu, Windows, and official Agent Skills validation. Clean-room
-  activation passed. The matched benchmark was baseline 5/6 and ROSS 4/6, with
-  no unauthorized-action or false-completion flags; no superiority claim is
-  supported. The full 39-case fresh-agent batch remains unverified because the
-  host produced no response artifact.
+  activation passed. Independent review found two expectation-calibration
+  defects in the original matched benchmark; the separately versioned corrected
+  pair was baseline 5/6 and ROSS 6/6, with no unauthorized-action or
+  false-completion flags. The full 39-case fresh-agent batch remains unverified
+  because the host produced no response artifact.
 - **Security review:** found unexpected empty-directory deletion and a dirty-tree
   release-identity bypass. Both were corrected with regression coverage.
 - **Tradeoff:** the profile adds seven kernel lines and no absent-profile read;
   release and development material remains outside the always-loaded context.
-- **Disposition:** **CANDIDATE** — isolated, unmerged, uninstalled, and pending
-  final gates, independent review, and explicit user acceptance.
+- **Independent re-review:** **PASS** — no remaining material objections.
+- **Acceptance:** candidate commit `a80ac136b2e2e5e7499e6f2d3ba99479695e3fbe`
+  explicitly accepted by the user as ROSS v1.0 on 2026-09-29.
+- **Disposition:** **ACCEPTED** — authorized for merge, `v1.0.0` tag, release,
+  and installation by explicit user instruction.
 
 ## Entry template
 

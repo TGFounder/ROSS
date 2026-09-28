@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.0 — candidate
+## 1.0.0 — 2026-09-29
 
 - Add standard-compatible public metadata and an optional constrained profile.
 - Add secure macOS/Linux and Windows lifecycle utilities.
@@ -8,8 +8,8 @@
 - Add deterministic evaluation fixtures, matched benchmark evidence, public
   security guidance, compatibility status, and lightweight CI.
 
-This version remains a candidate pending independent review and explicit user
-acceptance.
+Accepted by explicit user instruction after independent re-review passed with
+no remaining material objections.
 
 ## 0.1.0 — 2026-09-28
 
