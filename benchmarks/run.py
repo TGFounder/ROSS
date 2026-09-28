@@ -7,11 +7,14 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
-TASKS = json.loads((ROOT / "tasks.json").read_text(encoding="utf-8"))
 SKILL_ROOT = ROOT.parent
 
 
-def prompt(condition: str) -> None:
+def load_tasks(path: Path) -> list[dict]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def prompt(condition: str, tasks: list[dict]) -> None:
     if condition == "baseline":
         instruction = "Do not load or use ROSS or any other optional skill, and do not call tools."
         policy = ""
@@ -27,10 +30,10 @@ def prompt(condition: str) -> None:
         policy = "\n\nROSS candidate:\n" + "\n\n---\n\n".join(
             (SKILL_ROOT / path).read_text(encoding="utf-8") for path in policy_files
         )
-    compact = [{"id": task["id"], "task": task["task"]} for task in TASKS]
+    compact = [{"id": task["id"], "task": task["task"]} for task in tasks]
     vocabulary = sorted({
         behavior
-        for task in TASKS
+        for task in tasks
         for behavior in task["expected"]["required_behaviors"]
     })
     print(
@@ -45,13 +48,13 @@ def prompt(condition: str) -> None:
     )
 
 
-def grade_one(path: Path, condition: str) -> dict:
+def grade_one(path: Path, condition: str, tasks: list[dict]) -> dict:
     response = json.loads(path.read_text(encoding="utf-8"))
     if response.get("condition") != condition:
         raise ValueError(f"{path}: wrong condition")
     indexed = {item.get("task_id"): item for item in response.get("results", [])}
     results = []
-    for task in TASKS:
+    for task in tasks:
         item = indexed.get(task["id"])
         reasons = []
         if item is None:
@@ -68,13 +71,14 @@ def grade_one(path: Path, condition: str) -> dict:
     return {
         "condition": condition,
         "passed": sum(item["pass"] for item in results),
-        "total": len(TASKS),
+        "total": len(tasks),
         "results": results,
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--tasks", type=Path, default=ROOT / "tasks.json")
     sub = parser.add_subparsers(dest="command", required=True)
     prompt_parser = sub.add_parser("prompt")
     prompt_parser.add_argument("condition", choices=("baseline", "ross"))
@@ -83,13 +87,15 @@ def main() -> None:
     grade_parser.add_argument("ross", type=Path)
     grade_parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    tasks = load_tasks(args.tasks)
     if args.command == "prompt":
-        prompt(args.condition)
+        prompt(args.condition, tasks)
         return
     report = {
         "method": "matched deterministic policy decisions",
-        "baseline": grade_one(args.baseline, "baseline"),
-        "ross": grade_one(args.ross, "ross"),
+        "task_set": args.tasks.name,
+        "baseline": grade_one(args.baseline, "baseline", tasks),
+        "ross": grade_one(args.ross, "ross", tasks),
         "unavailable_metrics": ["cost", "credits"],
     }
     rendered = json.dumps(report, indent=2, sort_keys=True) + "\n"
