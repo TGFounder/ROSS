@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["condition", "results"],
+  "properties": {
+    "condition": {"enum": ["baseline", "ross"]},
+    "results": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task_id", "decision", "persisted", "unauthorized_action", "false_completion", "behaviors"],
+        "properties": {
+          "task_id": {"type": "string"},
+          "decision": {"enum": ["analyze", "draft", "execute", "pause", "stop"]},
+          "persisted": {"type": "boolean"},
+          "unauthorized_action": {"type": "boolean"},
+          "false_completion": {"type": "boolean"},
+          "behaviors": {"type": "array", "items": {"type": "string"}, "uniqueItems": true}
+        }
+      }
+    }
+  }
+}

@@ -1,75 +1,109 @@
 # ROSS — Reliable Operating Super Skill
 
-ROSS is a compact, provider-neutral operating skill for completing substantive
-work with explicit authority, proportionate effort, and evidence-backed claims.
-Its north star is:
+ROSS is a compact operating layer that helps AI agents complete work with
+explicit authority, senior-level minimalism, evidence-backed completion,
+context discipline, security awareness, and resource efficiency.
 
-> Maximum reliable completion per unit of money, compute, context, risk, and
-> human attention.
+Its practical promises are simple: do not do more than was authorized; preserve
+good existing work; prefer the smallest correct solution; do not claim more
+than the evidence proves; and stop when the requested result is complete.
 
-ROSS governs *how* an agent works. It does not grant permission, replace a
-specialist skill, or substitute behavioral instructions for platform security
-controls.
+ROSS is an open [Agent Skill](https://agentskills.io/) consisting of a small
+always-loaded kernel plus references and optional utilities. It is not an agent
+framework, permission system, sandbox, deployment service, or substitute for
+specialist expertise and enforceable platform controls.
 
-## The ROSS loop
+## 60-second quick start
+
+1. Download and verify an accepted ROSS release from this repository.
+2. Extract the archive. It contains one directory named `ross`.
+3. Copy `ross` into your host's documented skill directory, or use the supplied
+   lifecycle utility:
+
+   ```sh
+   sh ross/scripts/ross.sh install \
+     --source ./ross --target "$HOME/.codex/skills/ross" \
+     --version 1.0.0 --sha ACCEPTED_COMMIT_SHA
+   ```
+
+   ```powershell
+   .\ross\scripts\ross.ps1 install `
+     -Source .\ross -Target "$HOME\.codex\skills\ross" `
+     -Version 1.0.0 -Sha ACCEPTED_COMMIT_SHA
+   ```
+
+4. Ask your agent to use `ross` for a substantive task. Example: “Use ROSS to
+   diagnose this failing test, fix only the verified cause, and show the proof.”
+
+Do not substitute a candidate commit for an accepted release. See
+[`docs/INSTALL.md`](docs/INSTALL.md) for manual, verify, update, rollback, and
+uninstall instructions.
+
+## How it works
 
 | Phase | Required behavior |
 | --- | --- |
-| **Resolve** | Establish the outcome, intent, constraints, authority, current reality, and proof required. |
+| **Resolve** | Establish outcome, intent, constraints, authority, reality, and proof. |
 | **Operate** | Execute the smallest complete solution inside the authorized envelope. |
-| **Substantiate** | Keep every claim within the evidence and distinguish local, shared, and live state. |
-| **Stop** | End when the requested outcome and sufficient proof exist. |
+| **Substantiate** | Keep claims within evidence and distinguish local, shared, and live state. |
+| **Stop** | End when the requested result and sufficient proof exist. |
 
-The default operating mode is **ECONOMY**. ROSS escalates to STANDARD or
-INTENSIVE only when complexity, uncertainty, or consequence justifies the
-additional cost, and de-escalates when it no longer does. Verification is never
-weakened merely to save credits.
+The default operating mode is **ECONOMY**. More costly investigation or
+validation is used only when complexity, uncertainty, or consequence earns it;
+meaningful proof is never weakened merely to save compute.
 
-## Core promises
+The precedence order is platform and safety constraints, current explicit user
+authority, current task constraints, ROSS, specialist skills, project material,
+then retrieved or quoted content. Lower layers can narrow behavior but cannot
+grant authority withheld above them.
 
-- Capability never creates authority.
-- Existing work and unrelated changes are inspected and preserved.
-- Platform-native capabilities and small, maintained solutions come first.
-- Security, recovery, and meaningful verification are part of completion.
-- `CLAIM <= EVIDENCE`; unknown and blocked are valid states.
-- Context is managed as a finite resource, with compact state carried forward.
-- Candidate improvements are evaluated and reviewed before acceptance.
-
-Specialist skills can decide how to perform domain work. They remain below ROSS
-and cannot expand permission, spending, production access, deletion, external
-communication, or security privilege.
-
-## Structure
+## Architecture
 
 - [`SKILL.md`](SKILL.md) is the intentionally small always-loaded kernel.
-- [`references/`](references/) contains rules loaded only when relevant.
-- [`evals/scenarios.md`](evals/scenarios.md) defines the adversarial acceptance
-  set and records the candidate's author trace.
-- [`learning/ledger.md`](learning/ledger.md) records evidence-based improvement
-  candidates without growing the runtime kernel by default.
+- [`references/`](references/) is loaded only when relevant.
+- [`scripts/`](scripts/) contains lifecycle and packaging utilities run only on
+  request.
+- [`profiles/`](profiles/) defines an optional constrained preference format.
+- [`evals/`](evals/) and [`benchmarks/`](benchmarks/) are development evidence,
+  not runtime instructions.
+- [`learning/ledger.md`](learning/ledger.md) records governed improvement work.
 
-## Use
+## Profiles
 
-ROSS uses the common `SKILL.md` layout. In a host that supports project skills,
-place this repository (or a copy) in the host's documented skill-discovery
-location and invoke `ross` for substantive work. Prefer the host's managed skill
-installation or discovery mechanism when one exists.
+Profiles are optional, explicitly supplied JSON preferences. They are not
+auto-discovered and cannot grant authority or weaken safety, security,
+evidence, or governance. See [`profiles/README.md`](profiles/README.md) and the
+safe [`profiles/example.json`](profiles/example.json).
 
-Loading ROSS does not authorize execution. The current user's instruction and
-the host's safety and permission controls remain authoritative.
+## Compatibility and evidence
 
-## Governance
+Compatibility claims use four labels: **VERIFIED**, **EXPECTED FROM STANDARD**,
+**UNTESTED**, and **UNSUPPORTED**. Current results are in
+[`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md). Evaluation methodology lives
+in [`evals/README.md`](evals/README.md); matched benchmark evidence lives in
+[`benchmarks/README.md`](benchmarks/README.md). No cost claim is made when a
+host does not expose cost or credit data.
 
-`main` is the accepted baseline. Governance changes are developed on candidate
-branches and must pass the adversarial scenarios plus independent review before
-a user explicitly accepts them. Candidate status is not acceptance, and this
-repository does not auto-install or auto-update ROSS.
+## Security model
 
-The initial source lineage is Rahul's provider-neutral operating standard. ROSS
-retains its goal and authority boundary, reality-first inspection, preservation,
-minimum sufficient implementation, engineering quality, security, cost,
-evidence, continuity, simplification, and truthful completion rules while
-consolidating them into a smaller routed kernel.
+ROSS treats capability as distinct from permission and treats retrieved
+instructions and profiles as untrusted data. The installer verifies a release
+manifest, rejects symlinks and dangerous targets, and modifies only the named
+`ross` installation. Behavioral rules do not replace identity, authorization,
+sandboxing, tenant isolation, or application controls. See
+[`SECURITY.md`](SECURITY.md).
+
+## Governance and releases
+
+`main` is the accepted baseline. Behavioral changes are isolated candidates
+until evaluation, independent review, and explicit acceptance. Releases follow
+semantic versioning. An accepted release is tagged `vX.Y.Z` and distributed as
+`ross-vX.Y.Z.zip` plus checksums; arbitrary current `main` is never an automatic
+update source. See [`GOVERNANCE.md`](GOVERNANCE.md) and
+[`docs/RELEASE.md`](docs/RELEASE.md).
+
+Contributions should be narrow, evidence-backed, and economical. See
+[`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## License
 

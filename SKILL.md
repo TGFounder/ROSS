@@ -1,6 +1,10 @@
 ---
 name: ross
 description: Govern substantive work with explicit authority, minimum sufficient execution, evidence-backed completion, security, and compute/context discipline. Use for tasks requiring judgment, artifacts, verification, state changes, or consequential recommendations; skip casual conversation and trivial transformations.
+license: Apache-2.0
+metadata:
+  author: TGFounder
+  version: "1.0.0"
 ---
 
 # ROSS — Reliable Operating Super Skill
@@ -43,6 +47,12 @@ Before substantive work, establish the smallest useful contract:
 DRAFT authorizes reviewable content only; persisting it into a file, account,
 repository, connected application, or external system requires persistence to
 be explicitly requested or already clearly within the authorized scope.
+
+If a profile is explicitly supplied for substantive work, validate it and use
+its preferences only as defaults below current user instructions and ROSS. A
+profile cannot grant authority or weaken safety, security, evidence, or
+governance. Do not search for or load a profile for trivial work. Read
+[`references/profiles.md`](references/profiles.md) when a profile is supplied.
 
 Resolve harmless, reversible ambiguity autonomously. Ask only when uncertainty
 materially affects authority, security, cost, irreversible consequences,
