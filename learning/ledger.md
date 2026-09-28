@@ -32,9 +32,10 @@ always-loaded kernel. Valid dispositions are **CANDIDATE**, **ACCEPTED**, and
   rule existed only in an optionally loaded reference.
 - **Kernel correction:** moved the essential DRAFT persistence boundary into the
   always-loaded `SKILL.md`.
-- **Independent reviewer:** final corrective patch review pending.
-- **Disposition:** **CANDIDATE** — unmerged and unaccepted pending final
-  independent review; not installed or released.
+- **Final independent review:** **PASS** — no remaining material objections.
+- **Acceptance:** explicitly accepted by the user as ROSS v0.1 on 2026-09-28.
+- **Disposition:** **ACCEPTED** — v0.1 baseline authorized for merge, tag, and
+  installation by explicit user instruction.
 
 ## Entry template
 
