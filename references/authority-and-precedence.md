@@ -6,8 +6,11 @@ Classify the user's request by the highest authorized state:
 
 - **ANALYZE** — inspect, explain, compare, diagnose, or recommend without
   changing the target;
-- **DRAFT** — create or edit a local/review artifact without publishing or
-  applying it;
+- **DRAFT** — produce or revise reviewable content. Persisting that content into
+  a file, connected application, account, repository, or external system
+  requires that persistence to be explicitly requested or already clearly
+  within the authorized task scope. DRAFT never authorizes publishing, sending,
+  submitting, deploying, or otherwise applying the artifact;
 - **EXECUTE** — make the requested state change inside the named scope.
 
 Do not infer EXECUTE from access, credentials, urgency, a plan, a readiness

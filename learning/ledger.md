@@ -15,12 +15,19 @@ always-loaded kernel. Valid dispositions are **CANDIDATE**, **ACCEPTED**, and
   preserve those protections while loading deeper rules only when relevant.
 - **Candidate:** compact `SKILL.md`, five routed references, one adversarial
   scenario table, and this ledger.
-- **Evaluation:** author trace passes 12/12 scenarios in
+- **Evaluation:** author trace passes 14/14 scenarios in
   `evals/scenarios.md`; frontmatter, structure, whitespace, and relative-link
   validation passed on 2026-09-28.
 - **Tradeoff:** routing requires an extra read for consequential work, avoiding
   a larger cost on simple invocations.
-- **Independent reviewer:** pending.
+- **Independent review:** the original 12 scenarios passed, but review found two
+  material objections: ambiguity between DRAFT content generation and external
+  persistence, and the absence of an explicit governance-isolation requirement.
+  The candidate remained unmerged and unaccepted.
+- **Corrective patch:** clarified the DRAFT persistence boundary, required
+  isolated governance staging and an exact baseline diff, and added scenarios
+  13 and 14 for re-review.
+- **Independent reviewer:** corrective patch re-review pending.
 - **Disposition:** **CANDIDATE** — not accepted, installed, released, or merged.
 
 ## Entry template

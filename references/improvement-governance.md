@@ -16,6 +16,12 @@ repeated. Keep this history outside the runtime kernel.
 
 ## Protected governance
 
+Governance candidates must be developed in an isolated branch, directory, or
+equivalent staging surface. Do not modify the currently accepted active baseline
+in place. Where technically possible, verify that the accepted baseline remains
+unchanged until explicit acceptance. The authoritative review artifact should be
+an exact diff against the accepted baseline, not only a prose summary.
+
 Changes to authority, precedence, security, compute discipline, evidence,
 completion, or self-governance remain candidates until independently reviewed.
 The author cannot be the sole verifier. Independent review receives the goal,
