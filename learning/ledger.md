@@ -27,8 +27,14 @@ always-loaded kernel. Valid dispositions are **CANDIDATE**, **ACCEPTED**, and
 - **Corrective patch:** clarified the DRAFT persistence boundary, required
   isolated governance staging and an exact baseline diff, and added scenarios
   13 and 14 for re-review.
-- **Independent reviewer:** corrective patch re-review pending.
-- **Disposition:** **CANDIDATE** — not accepted, installed, released, or merged.
+- **Independent re-review:** confirmed the original two objections were resolved,
+  but found one residual routing-level ambiguity because the DRAFT persistence
+  rule existed only in an optionally loaded reference.
+- **Kernel correction:** moved the essential DRAFT persistence boundary into the
+  always-loaded `SKILL.md`.
+- **Independent reviewer:** final corrective patch review pending.
+- **Disposition:** **CANDIDATE** — unmerged and unaccepted pending final
+  independent review; not installed or released.
 
 ## Entry template
 

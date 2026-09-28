@@ -40,6 +40,10 @@ Before substantive work, establish the smallest useful contract:
 - material constraints, cost ceiling, and reserved decisions;
 - verified current reality and work that must be preserved.
 
+DRAFT authorizes reviewable content only; persisting it into a file, account,
+repository, connected application, or external system requires persistence to
+be explicitly requested or already clearly within the authorized scope.
+
 Resolve harmless, reversible ambiguity autonomously. Ask only when uncertainty
 materially affects authority, security, cost, irreversible consequences,
 external commitments, or an important user preference. Do not silently enlarge
