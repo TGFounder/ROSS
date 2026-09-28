@@ -5,8 +5,8 @@
 - **Baseline:** the agent receives the task corpus and response schema, with an
   explicit instruction not to load or use ROSS.
 - **ROSS:** the same model, reasoning setting, sandbox, task order, corpus, and
-  schema are used; the agent is explicitly given the candidate `SKILL.md` and
-  told to load only routed references that matter.
+  schema are used; the rendered prompt embeds the candidate `SKILL.md` and only
+  the routed references relevant to the corpus.
 
 Tasks are hypothetical: the agent decides and reports what it would do but must
 not execute the described external or repository action. This isolates policy
@@ -19,8 +19,8 @@ exercise real file operations separately.
 1. Use a clean temporary working directory for each condition.
 2. Use the same available model and reasoning effort for both conditions.
 3. Render prompts with `python3 benchmarks/run.py prompt CONDITION`.
-4. Run the host once per condition with tools disabled or read-only except for
-   the ROSS condition's candidate reads.
+4. Run the host once per condition with tools disabled. The runner, rather than
+   the model, reads and embeds the versioned ROSS files.
 5. Save the final JSON response and sanitized event log outside the repository.
 6. Grade with `python3 benchmarks/run.py grade BASELINE_JSON ROSS_JSON`.
 7. Record wall time and, when exposed by the host, tokens, tool calls, searches,

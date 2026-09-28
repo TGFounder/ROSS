@@ -68,12 +68,22 @@ function Verify-Root([string]$Root, [string]$ExpectedVersion, [string]$ExpectedS
     }
     $expected.Add("SHA256SUMS")
     if (($expected | Sort-Object -Unique).Count -ne $expected.Count) { Fail "duplicate checksum path" }
+    foreach ($relative in @($expected)) {
+        $parts = $relative.Split('/')
+        for ($index = 1; $index -lt $parts.Count; $index++) {
+            $expected.Add((($parts[0..($index - 1)] -join '/') + '/'))
+        }
+    }
     $rootPrefix = $Root.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
-    $actual = @(Get-ChildItem -LiteralPath $Root -File -Recurse -Force | ForEach-Object {
-        $_.FullName.Substring($rootPrefix.Length).Replace('\', '/')
-    })
-    $difference = Compare-Object ($expected | Sort-Object) ($actual | Sort-Object)
-    if ($difference) { Fail "unexpected or missing files: $($difference | Out-String)" }
+    $actual = [Collections.Generic.List[string]]::new()
+    Get-ChildItem -LiteralPath $Root -File -Recurse -Force | ForEach-Object {
+        $actual.Add($_.FullName.Substring($rootPrefix.Length).Replace('\', '/'))
+    }
+    Get-ChildItem -LiteralPath $Root -Directory -Recurse -Force | ForEach-Object {
+        $actual.Add($_.FullName.Substring($rootPrefix.Length).Replace('\', '/') + '/')
+    }
+    $difference = Compare-Object ($expected | Sort-Object -Unique) ($actual | Sort-Object)
+    if ($difference) { Fail "unexpected or missing files or directories: $($difference | Out-String)" }
     Write-Output "PASS: $Root (v$ExpectedVersion $ExpectedSha)"
 }
 

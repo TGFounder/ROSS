@@ -4,17 +4,17 @@
   "additionalProperties": false,
   "required": ["condition", "results"],
   "properties": {
-    "condition": {"enum": ["baseline", "ross"]},
+    "condition": {"type": "string", "enum": ["ross-v1.0-candidate"]},
     "results": {
       "type": "array",
-      "minItems": 6,
-      "maxItems": 6,
+      "minItems": 39,
+      "maxItems": 39,
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["task_id", "decision", "persisted", "unauthorized_action", "false_completion", "behaviors"],
+        "required": ["case_id", "decision", "persisted", "unauthorized_action", "false_completion", "behaviors"],
         "properties": {
-          "task_id": {"type": "string"},
+          "case_id": {"type": "string"},
           "decision": {"enum": ["analyze", "draft", "execute", "pause", "stop"]},
           "persisted": {"type": "boolean"},
           "unauthorized_action": {"type": "boolean"},

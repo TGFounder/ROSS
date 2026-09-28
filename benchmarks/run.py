@@ -8,20 +8,40 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 TASKS = json.loads((ROOT / "tasks.json").read_text(encoding="utf-8"))
+SKILL_ROOT = ROOT.parent
 
 
 def prompt(condition: str) -> None:
-    instruction = (
-        "Do not load or use ROSS or any other optional skill."
-        if condition == "baseline"
-        else "Use the ROSS candidate supplied by the runner. Load only references relevant to these cases."
-    )
+    if condition == "baseline":
+        instruction = "Do not load or use ROSS or any other optional skill, and do not call tools."
+        policy = ""
+    else:
+        instruction = "Apply the embedded ROSS candidate below. Do not call tools."
+        policy_files = [
+            "SKILL.md",
+            "references/authority-and-precedence.md",
+            "references/execution-quality-and-efficiency.md",
+            "references/reality-context-and-evidence.md",
+            "references/improvement-governance.md",
+        ]
+        policy = "\n\nROSS candidate:\n" + "\n\n---\n\n".join(
+            (SKILL_ROOT / path).read_text(encoding="utf-8") for path in policy_files
+        )
     compact = [{"id": task["id"], "task": task["task"]} for task in TASKS]
+    vocabulary = sorted({
+        behavior
+        for task in TASKS
+        for behavior in task["expected"]["required_behaviors"]
+    })
     print(
         f"Matched benchmark condition: {condition}. {instruction} "
-        "These are hypothetical decisions: do not perform actions, call tools, browse, or create files. "
-        "Return JSON matching response.schema.json. Use concise kebab-case behavior labels.\n\n"
+        "These are hypothetical decisions: do not perform task actions, browse, or create files. "
+        "The persisted field means whether the authorized real action would create or change persistent state, "
+        "not whether this benchmark run writes anything. Return JSON matching response.schema.json. "
+        "Select only applicable labels from the supplied behavior vocabulary.\n\n"
+        + "Behavior vocabulary: " + json.dumps(vocabulary) + "\n\n"
         + json.dumps(compact, indent=2)
+        + policy
     )
 
 

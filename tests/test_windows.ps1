@@ -4,12 +4,12 @@ Set-StrictMode -Version Latest
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $TempRoot = Join-Path ([IO.Path]::GetTempPath()) "ross-windows.$([guid]::NewGuid().ToString('N'))"
 $Version = "1.0.0"
-$Sha = "1111111111111111111111111111111111111111"
+$Sha = (git -C $Root rev-parse HEAD).Trim()
 
 try {
     New-Item -ItemType Directory -Path $TempRoot | Out-Null
-    python (Join-Path $Root "scripts/package.py") --source $Root --output (Join-Path $TempRoot "one") --version $Version --sha $Sha --allow-dirty | Out-Null
-    python (Join-Path $Root "scripts/package.py") --source $Root --output (Join-Path $TempRoot "two") --version $Version --sha $Sha --allow-dirty | Out-Null
+    python (Join-Path $Root "scripts/package.py") --source $Root --output (Join-Path $TempRoot "one") --version $Version --sha $Sha | Out-Null
+    python (Join-Path $Root "scripts/package.py") --source $Root --output (Join-Path $TempRoot "two") --version $Version --sha $Sha | Out-Null
     $zipOne = Join-Path $TempRoot "one/ross-v$Version.zip"
     $zipTwo = Join-Path $TempRoot "two/ross-v$Version.zip"
     if ((Get-FileHash $zipOne -Algorithm SHA256).Hash -ne (Get-FileHash $zipTwo -Algorithm SHA256).Hash) {
@@ -49,6 +49,14 @@ try {
         if ($_.Exception.Message -eq "unexpected file was not detected") { throw }
     }
     Remove-Item -LiteralPath (Join-Path $Target "EXTRA")
+    New-Item -ItemType Directory -Path (Join-Path $Target "EMPTY") | Out-Null
+    try {
+        & $Lifecycle verify -Target $Target -Version $Version -Sha $Sha | Out-Null
+        throw "unexpected empty directory was not detected"
+    } catch {
+        if ($_.Exception.Message -eq "unexpected empty directory was not detected") { throw }
+    }
+    Remove-Item -LiteralPath (Join-Path $Target "EMPTY")
 
     & $Lifecycle update -Source (Join-Path $Extracted "ross") -Target $Target -Version $Version -Sha $Sha | Out-Null
     & $Lifecycle rollback -Source (Join-Path $Extracted "ross") -Target $Target -Version $Version -Sha $Sha | Out-Null

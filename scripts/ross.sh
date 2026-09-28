@@ -69,6 +69,10 @@ verify_root() {
     rm -f "$expected"
     return 1
   }
+  expected_dirs=$(mktemp "${TMPDIR:-/tmp}/ross-dirs.XXXXXX") || {
+    rm -f "$expected" "$actual"
+    return 1
+  }
   manifest_ok=1
   while IFS= read -r line || [ -n "$line" ]; do
     hash=${line%%  *}
@@ -104,7 +108,6 @@ verify_root() {
     printf '%s\n' "$path" >>"$expected"
   done <"$manifest"
   if [ "$manifest_ok" -eq 1 ]; then
-    printf '%s\n' SHA256SUMS >>"$expected"
     LC_ALL=C sort "$expected" -o "$expected"
     if [ -n "$(uniq -d "$expected")" ]; then
       printf '%s\n' 'duplicate checksum path' >&2
@@ -112,14 +115,35 @@ verify_root() {
     fi
   fi
   if [ "$manifest_ok" -eq 1 ]; then
-    (cd "$verify_path" && find . -type f -print | sed 's#^\./##' | LC_ALL=C sort) >"$actual"
+    while IFS= read -r path; do
+      case "$path" in
+        */*)
+          directory=${path%/*}
+          while [ -n "$directory" ]; do
+            printf '%s/\n' "$directory" >>"$expected_dirs"
+            case "$directory" in
+              */*) directory=${directory%/*} ;;
+              *) break ;;
+            esac
+          done
+          ;;
+      esac
+    done <"$expected"
+    printf '%s\n' SHA256SUMS >>"$expected"
+    cat "$expected_dirs" >>"$expected"
+    LC_ALL=C sort -u "$expected" -o "$expected"
+    (
+      cd "$verify_path" || exit 1
+      find . -type f -print | sed 's#^\./##'
+      find . -type d ! -name . -print | sed 's#^\./##; s#$#/#'
+    ) | LC_ALL=C sort >"$actual"
     if ! diff -u "$expected" "$actual" >/dev/null; then
-      printf '%s\n' 'unexpected or missing files:' >&2
+      printf '%s\n' 'unexpected or missing files or directories:' >&2
       diff -u "$expected" "$actual" >&2 || true
       manifest_ok=0
     fi
   fi
-  rm -f "$expected" "$actual"
+  rm -f "$expected" "$actual" "$expected_dirs"
   [ "$manifest_ok" -eq 1 ] || return 1
   printf 'PASS: %s (v%s %s)\n' "$verify_path" "$verify_version" "$verify_sha"
 }

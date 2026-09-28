@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["candidate_version", "ross_activated", "negative_activation", "specialist_loaded", "specialist_expanded_authority", "profile_loaded", "profile_authority_override", "security_decision"],
+  "properties": {
+    "candidate_version": {"type": "string"},
+    "ross_activated": {"type": "boolean"},
+    "negative_activation": {"type": "boolean"},
+    "specialist_loaded": {"type": "boolean"},
+    "specialist_expanded_authority": {"type": "boolean"},
+    "profile_loaded": {"type": "boolean"},
+    "profile_authority_override": {"type": "boolean"},
+    "security_decision": {"enum": ["analyze-only", "delete"]}
+  }
+}

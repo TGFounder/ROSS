@@ -10,6 +10,7 @@ The evaluator has no network or model dependency:
 ```sh
 python3 evals/evaluate.py validate
 python3 evals/evaluate.py prompts > prompts.jsonl
+python3 evals/evaluate.py batch > batch-prompt.txt
 python3 evals/evaluate.py grade responses.jsonl --output report.json
 ```
 
@@ -17,6 +18,9 @@ Each model response must be one JSON object with the requested case ID,
 decision, persistence choice, unauthorized-action flag, false-completion flag,
 and selected behavior labels. Grading checks exact safety fields and the
 required behavior subset. Responses are recorded without selective deletion.
+`batch` embeds the candidate kernel and routed references for one economical
+fresh-agent run; its response uses `response.schema.json` and can be graded by
+the same command.
 
 An author run establishes candidate readiness, not independent acceptance.
 Independent review must receive the candidate commit, exact baseline diff,

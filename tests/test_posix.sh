@@ -6,10 +6,10 @@ TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/ross-posix.XXXXXX")
 TMP_ROOT=$(cd "$TMP_ROOT" && pwd -P)
 trap 'rm -rf "$TMP_ROOT"' EXIT HUP INT TERM
 VERSION=1.0.0
-SHA=1111111111111111111111111111111111111111
+SHA=$(git -C "$ROOT" rev-parse HEAD)
 
-python3 "$ROOT/scripts/package.py" --source "$ROOT" --output "$TMP_ROOT/one" --version "$VERSION" --sha "$SHA" --allow-dirty >/dev/null
-python3 "$ROOT/scripts/package.py" --source "$ROOT" --output "$TMP_ROOT/two" --version "$VERSION" --sha "$SHA" --allow-dirty >/dev/null
+python3 "$ROOT/scripts/package.py" --source "$ROOT" --output "$TMP_ROOT/one" --version "$VERSION" --sha "$SHA" >/dev/null
+python3 "$ROOT/scripts/package.py" --source "$ROOT" --output "$TMP_ROOT/two" --version "$VERSION" --sha "$SHA" >/dev/null
 cmp "$TMP_ROOT/one/ross-v$VERSION.zip" "$TMP_ROOT/two/ross-v$VERSION.zip"
 
 mkdir "$TMP_ROOT/extracted" "$TMP_ROOT/skills"
@@ -40,6 +40,12 @@ if sh "$LIFECYCLE" verify --target "$TARGET" --version "$VERSION" --sha "$SHA" >
   exit 1
 fi
 rm "$TARGET/EXTRA"
+mkdir "$TARGET/EMPTY"
+if sh "$LIFECYCLE" verify --target "$TARGET" --version "$VERSION" --sha "$SHA" >/dev/null 2>&1; then
+  printf '%s\n' 'unexpected empty directory was not detected' >&2
+  exit 1
+fi
+rmdir "$TARGET/EMPTY"
 
 sh "$LIFECYCLE" update --source "$TMP_ROOT/extracted/ross" --target "$TARGET" --version "$VERSION" --sha "$SHA" >/dev/null
 sh "$LIFECYCLE" rollback --source "$TMP_ROOT/extracted/ross" --target "$TARGET" --version "$VERSION" --sha "$SHA" >/dev/null
@@ -58,4 +64,4 @@ fi
 sh "$LIFECYCLE" uninstall --target "$TARGET" --version "$VERSION" --sha "$SHA" >/dev/null
 [ ! -e "$TARGET" ]
 [ "$(sed -n '1p' "$TMP_ROOT/skills/unrelated.txt")" = keep ]
-printf '%s\n' 'PASS: reproducible package; install, verify, mismatch, update, rollback, symlink, target, and uninstall isolation'
+printf '%s\n' 'PASS: reproducible package; install, verify, file/directory mismatch, update, rollback, symlink, target, and uninstall isolation'

@@ -64,7 +64,19 @@ def assert_clean(source: Path) -> None:
         stdout=subprocess.PIPE,
     )
     if result.stdout:
-        die("checkout is dirty; commit the candidate or pass --allow-dirty for testing")
+        die("checkout is dirty; commit the candidate before packaging")
+
+
+def assert_commit(source: Path, expected_sha: str) -> None:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=source,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE,
+    )
+    if result.stdout.strip().lower() != expected_sha:
+        die("sha does not match the source checkout HEAD")
 
 
 def zip_entry(archive: zipfile.ZipFile, name: str, data: bytes, mode: int) -> None:
@@ -81,7 +93,6 @@ def main() -> None:
     parser.add_argument("--sha", required=True)
     parser.add_argument("--source", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--output", type=Path, default=Path("dist"))
-    parser.add_argument("--allow-dirty", action="store_true")
     args = parser.parse_args()
 
     source = args.source.resolve()
@@ -94,8 +105,8 @@ def main() -> None:
         die("sha must be a full 40-character hexadecimal commit SHA")
     if frontmatter_version(source / "SKILL.md") != version:
         die("version does not match SKILL.md metadata.version")
-    if not args.allow_dirty:
-        assert_clean(source)
+    assert_clean(source)
+    assert_commit(source, commit_sha)
 
     paths = runtime_paths(source)
     for item in paths:
