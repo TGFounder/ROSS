@@ -1,0 +1,49 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "ross",
+  "version": "1.0.0",
+  "description": "Behavioral governance for explicit authority, minimum sufficient execution, evidence-backed completion, and disciplined use of context and compute.",
+  "author": {
+    "name": "TRUSTGRAPHED SYSTEMS PRIVATE LIMITED",
+    "email": "rahul@trustgraphed.com",
+    "url": "https://trustgraphed.com"
+  },
+  "homepage": "https://github.com/TGFounder/ROSS",
+  "repository": "https://github.com/TGFounder/ROSS",
+  "license": "Apache-2.0",
+  "keywords": [
+    "agent-governance",
+    "authority",
+    "evidence",
+    "security",
+    "productivity"
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "ROSS — Reliable Operating",
+        "shortDescription": "Govern reliable agent work",
+        "longDescription": "ROSS — Reliable Operating Super Skill helps AI agents define authority before acting, choose the smallest sufficient path, verify completion against evidence, manage context deliberately, recognize security boundaries, conserve compute and cost, and stop when the requested outcome is complete. It is a behavioral governance skill that coexists with specialist skills. It does not replace platform permissions, identity, sandboxing, application authorization, or specialist expertise.",
+        "developerName": "TRUSTGRAPHED SYSTEMS PRIVATE LIMITED",
+        "category": "Productivity",
+        "capabilities": [
+          "Clarify authority and execution boundaries",
+          "Prefer minimum sufficient execution",
+          "Require evidence-backed completion",
+          "Manage context and compute deliberately",
+          "Apply security-aware operating discipline",
+          "Stop when the requested outcome is verified",
+          "Coexist with task-specific specialist skills"
+        ],
+        "websiteURL": "https://trustgraphed.com",
+        "defaultPrompt": [
+          "Diagnose this failing test, fix only the verified cause, preserve unrelated changes, and show targeted proof.",
+          "Research this decision using current primary sources, separate facts from unknowns, and stop when evidence is sufficient.",
+          "Continue from the verified checkpoint, use the relevant specialist skill, and ask before any unapproved external action."
+        ],
+        "composerIcon": "./assets/trustgraphed-logo.png",
+        "logo": "./assets/trustgraphed-logo.png"
+      }
+    }
+  }
+}

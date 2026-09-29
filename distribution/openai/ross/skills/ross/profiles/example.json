@@ -1,0 +1,10 @@
+{
+  "version": "1",
+  "preferences": {
+    "cost_sensitivity": "high",
+    "autonomy": "balanced",
+    "reporting": "concise",
+    "coding_minimalism": "strong",
+    "preferred_tools": ["rg", "git"]
+  }
+}

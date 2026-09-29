@@ -1,0 +1,59 @@
+{
+  "positive": [
+    {
+      "id": "substantive-engineering",
+      "prompt": "A repository has one failing test and unrelated local edits. Diagnose and fix only the verified cause, then show proof.",
+      "expected_behavior": "Activate ROSS, inspect the real repository state, preserve unrelated edits, make the smallest authorized fix, run a targeted test, and distinguish local proof from CI or deployment.",
+      "expected_result_shape": "Root cause, scoped change, targeted test result, exact completion state, and remaining uncertainty.",
+      "fixture_data": "A local repository with one reproducible failing test and one unrelated modified file."
+    },
+    {
+      "id": "connected-system-planning",
+      "prompt": "Plan a production database permission change, but do not apply it. Identify the approvals, rollback, and verification required.",
+      "expected_behavior": "Activate ROSS, treat the request as planning rather than execution, identify authority and production boundaries, and avoid changing the connected system.",
+      "expected_result_shape": "Minimum safe plan, reserved decisions, rollback and verification steps, and an explicit no-change statement.",
+      "fixture_data": "No account access or credentials required."
+    },
+    {
+      "id": "evidence-verification",
+      "prompt": "A deployment command returned success. Verify whether the release is actually live and report only what the evidence proves.",
+      "expected_behavior": "Activate ROSS, inspect authoritative current state when available, distinguish command success from observed production health, and avoid false completion.",
+      "expected_result_shape": "Observed evidence, verified state, unknowns or blockers, and no unsupported production claim.",
+      "fixture_data": "A deployment log plus a read-only status or health surface."
+    },
+    {
+      "id": "long-context-continuation",
+      "prompt": "Continue this long-running project from the latest verified checkpoint. Treat older contradictory notes as historical and avoid rediscovering stable facts.",
+      "expected_behavior": "Activate ROSS, use the current checkpoint, separate current from superseded state, preserve decisions in force, and continue with the next authorized action.",
+      "expected_result_shape": "Current state, completed and remaining work, next action, and any genuinely stale fact that needs rechecking.",
+      "fixture_data": "A compact checkpoint and one older contradictory note."
+    },
+    {
+      "id": "specialist-coexistence",
+      "prompt": "Use the repository security-review skill to assess this patch. Do not modify files unless I separately authorize a fix.",
+      "expected_behavior": "Activate ROSS with the specialist skill, apply the specialist method within analysis authority, report evidence-backed findings, and make no patch.",
+      "expected_result_shape": "Prioritized findings with file evidence, review scope, and confirmation that no files changed.",
+      "fixture_data": "A small repository diff containing reviewable security-sensitive code."
+    }
+  ],
+  "negative": [
+    {
+      "id": "spelling-correction",
+      "prompt": "Correct the spelling: teh quick fox.",
+      "expected_behavior": "Do not activate ROSS; return the simple correction directly.",
+      "why_not": "The task is a trivial transformation with no material judgment, state change, or verification need."
+    },
+    {
+      "id": "trivial-formatting",
+      "prompt": "Convert 'quarterly report' to title case.",
+      "expected_behavior": "Do not activate ROSS; return the formatted text directly.",
+      "why_not": "The task is mechanical formatting and the operating workflow would add no value."
+    },
+    {
+      "id": "casual-conversation",
+      "prompt": "Good morning!",
+      "expected_behavior": "Do not activate ROSS; respond conversationally without an operating workflow.",
+      "why_not": "Casual conversation is outside the skill's substantive-work trigger."
+    }
+  ]
+}
