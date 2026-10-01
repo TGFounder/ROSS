@@ -1,5 +1,7 @@
 # ROSS — Reliable Operating Super Skill
 
+[![SkillPlus Security Report](https://skillplus.xyz/api/report/321da3fd-5fc7-4319-966d-9a80ac191607/badge.svg)](https://skillplus.xyz/report/321da3fd-5fc7-4319-966d-9a80ac191607)
+
 ROSS is a compact operating layer that helps AI agents complete work with
 explicit authority, senior-level minimalism, evidence-backed completion,
 context discipline, security awareness, and resource efficiency.
