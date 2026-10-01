@@ -14,7 +14,7 @@ from ..core.memory import Memory, terms_of
 from ..core.models import Usage
 from ..core.security import Authority, Gate, Workspace
 from ..core.telemetry import Telemetry
-from ..providers.base import ModelRequest, ProviderError
+from ..providers.base import ModelRequest, ProviderError, estimate_tokens
 from ..storage.sqlite import SQLiteStateStore
 from .artifacts import Artifacts
 from .profile import system_prompt
@@ -106,7 +106,10 @@ class Session:
                 break
             req = self._request(messages, self.max_output)
             try:
-                n = self.provider.count_tokens(req)
+                try:
+                    n = self.provider.count_tokens(req)
+                except ProviderError:
+                    n = estimate_tokens(req) * 6 // 5  # no exact count available: a conservative local estimate
                 req.max_output = self.governor.admit(n, req.max_output)
             except BudgetExceeded as e:
                 status, detail = "budget", str(e)
