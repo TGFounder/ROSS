@@ -45,6 +45,7 @@ class SQLiteStateStore(StateStore):
     def _migrate(self):
         ver = self.db.execute("PRAGMA user_version").fetchone()[0]
         if ver > SCHEMA_VERSION:
+            self.db.close()
             raise RuntimeError(f"ross.db schema {ver} is newer than this ROSS ({SCHEMA_VERSION}); upgrade ROSS")
         with self.db:
             for v in range(ver + 1, SCHEMA_VERSION + 1):

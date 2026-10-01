@@ -168,6 +168,8 @@ class Session:
                 self.telemetry("calls_saved_by_stop_policy", 1, "COUNTED")
                 break
         self._remember(final_text, status)
+        if self.store:
+            self.store.close()  # one connection per session; never left open
         return Result(status, final_text, calls, usage, round(cost, 6), "ESTIMATED from " + str(self.governor.version), tool_calls,
                       result_chars, denied, detail, messages if self.keep_messages else [])
 
