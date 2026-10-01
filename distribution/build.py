@@ -23,7 +23,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = Path(__file__).resolve().parent / "runtime.lock"
 RUNTIME_FILES = ["SKILL.md", "LICENSE", "runtime/ross.py"] + sorted(
-    str(p.relative_to(ROOT)) for d in ("references", "profiles") for p in (ROOT / d).glob("*") if p.is_file())
+    p.relative_to(ROOT).as_posix() for d in ("references", "profiles") for p in (ROOT / d).glob("*") if p.is_file())
 HOSTS = {
     "claude": {"pkg": ROOT / "distribution" / "claude" / "ross", "matcher": "Read|Bash"},
     "openai": {"pkg": ROOT / "distribution" / "openai" / "ross", "matcher": None},
@@ -92,7 +92,7 @@ def check():
             p = skill / rel
             if not p.is_file() or p.is_symlink() or sha256(p) != digest:
                 problems.append(f"{host}: packaged file differs from canonical: {rel}")
-        actual = {str(p.relative_to(skill)) for p in skill.rglob("*") if p.is_file() and not SKIP_DIRS & set(p.parts)}
+        actual = {p.relative_to(skill).as_posix() for p in skill.rglob("*") if p.is_file() and not SKIP_DIRS & set(p.parts)}
         for extra in sorted(actual - set(files)):
             problems.append(f"{host}: unexpected packaged file: {extra}")
         hj = spec["pkg"] / "hooks" / "hooks.json"
