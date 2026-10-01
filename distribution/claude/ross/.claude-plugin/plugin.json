@@ -1,0 +1,15 @@
+{
+  "name": "ross",
+  "displayName": "ROSS — Reliable Operating Super Skill",
+  "version": "1.0.0",
+  "description": "Helps Claude work with explicit authority, minimal sufficient action, evidence-backed completion, security awareness, cost discipline, and correct stopping. Instructions only: no backend, no MCP server, no data collection.",
+  "author": {
+    "name": "TRUSTGRAPHED SYSTEMS PRIVATE LIMITED",
+    "email": "rahul@trustgraphed.com",
+    "url": "https://trustgraphed.com"
+  },
+  "homepage": "https://github.com/TGFounder/ROSS",
+  "repository": "https://github.com/TGFounder/ROSS",
+  "license": "Apache-2.0",
+  "keywords": ["governance", "authorization", "verification", "evidence", "agent-safety", "productivity"]
+}

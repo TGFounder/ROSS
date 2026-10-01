@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/TGFounder/ROSS/blob/main/profiles/profile.schema.json",
+  "title": "ROSS public profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "preferences"],
+  "properties": {
+    "version": {"const": "1"},
+    "preferences": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "cost_sensitivity": {
+          "enum": ["high", "balanced", "low"]
+        },
+        "autonomy": {
+          "enum": ["cautious", "balanced", "proactive"]
+        },
+        "reporting": {
+          "enum": ["concise", "standard", "detailed"]
+        },
+        "coding_minimalism": {
+          "enum": ["strong", "balanced"]
+        },
+        "preferred_tools": {
+          "type": "array",
+          "maxItems": 12,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,39}$"
+          }
+        }
+      }
+    }
+  }
+}

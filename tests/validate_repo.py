@@ -4,6 +4,7 @@
 import json
 from pathlib import Path
 import re
+import subprocess
 import sys
 
 
@@ -20,6 +21,7 @@ SECRET_PATTERNS = {
     "GitHub token": re.compile(r"\bgh[pousr]_[A-Za-z0-9]{30,}\b"),
     "OpenAI-style key": re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b"),
 }
+AUTHORIZED_PUBLIC_CONTACT = "rahul@trustgraphed.com"
 
 
 def fail(message: str) -> None:
@@ -96,7 +98,11 @@ def validate_text(all_files: list[Path]) -> None:
                 fail(f"trailing whitespace: {path.relative_to(ROOT)}:{number}")
             if "\t" in line:
                 fail(f"tab character: {path.relative_to(ROOT)}:{number}")
-        if path.suffix.lower() == ".md":
+        relative = path.relative_to(ROOT)
+        immutable_plugin_runtime = relative.parts[:5] == (
+            "distribution", "claude", "ross", "skills", "ross"
+        )
+        if path.suffix.lower() == ".md" and not immutable_plugin_runtime:
             for target in link_pattern.findall(text):
                 target = target.strip().strip("<>").split("#", 1)[0]
                 if not target or re.match(r"^[a-z]+:", target, re.IGNORECASE):
@@ -108,12 +114,24 @@ def validate_text(all_files: list[Path]) -> None:
                     fail(f"link escapes repository: {path.relative_to(ROOT)} -> {target}")
                 if not resolved.exists():
                     fail(f"broken relative link: {path.relative_to(ROOT)} -> {target}")
-        relative = path.relative_to(ROOT)
         if relative.parts[:2] in {("tests", "fixtures"), ("benchmarks", "fixtures")}:
             continue
-        for label, pattern in {**PRIVATE_PATTERNS, **SECRET_PATTERNS}.items():
+        public_contact_removed = text.replace(AUTHORIZED_PUBLIC_CONTACT, "")
+        for label, pattern in PRIVATE_PATTERNS.items():
+            if pattern.search(public_contact_removed):
+                fail(f"{label} found in public file: {relative}")
+        for label, pattern in SECRET_PATTERNS.items():
             if pattern.search(text):
                 fail(f"{label} found in public file: {relative}")
+
+
+def validate_claude_distribution() -> None:
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "distribution" / "claude" / "build.py"), "check"],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        fail((result.stderr or result.stdout).strip())
 
 
 def validate_profile() -> None:
@@ -178,7 +196,8 @@ def main() -> None:
         validate_profile()
         validate_runtime_manifest()
         count = validate_evals()
-        print(f"PASS: frontmatter, links, structure, whitespace, privacy, secrets, profile, runtime manifest, {count} eval cases")
+        validate_claude_distribution()
+        print(f"PASS: frontmatter, links, structure, whitespace, privacy, secrets, profile, runtime manifest, {count} eval cases, Claude distribution")
     except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
         print(f"FAIL: {error}", file=sys.stderr)
         raise SystemExit(1)
