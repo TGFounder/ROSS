@@ -148,6 +148,27 @@ class ReduceTests(unittest.TestCase):
         self.assertIn("artifact abcdef012345", v)
         self.assertEqual(reduce_output("ls", "a\nb", 0, None), "a\nb")
 
+    def test_security_findings_and_warnings_survive_reduction(self):
+        """Regression: a pytest warnings summary (and any security-relevant line) must reach the model."""
+        passing = [f"tests/test_x.py::test_{i} PASSED" + " " * 40 + f"[{i % 100:3d}%]" for i in range(900)]
+        failures = [f"____ test_bad_{n} ____" for n in range(40)]
+        failures = [l for f in failures for l in (f, ">       f()", "E       ValueError: boom " + "x" * 120, "", "src/x.py:9: ValueError")]
+        warn = ["=============================== warnings summary ===============================",
+                "tests/test_http.py::test_fetch",
+                "  /repo/src/http.py:12: InsecureRequestWarning: Unverified HTTPS request to host 'billing.internal'",
+                "tests/test_old.py::test_legacy",
+                "  /repo/src/old.py:3: DeprecationWarning: legacy API",
+                "", "-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html"]
+        text = "\n".join(passing + ["=== FAILURES ==="] + failures + warn + ["=== 40 failed, 900 passed, 2 warnings in 3.1s ==="])
+        v = reduce_output("python3 -m pytest -v", text, 1, "abcdef012345")
+        self.assertIn("InsecureRequestWarning: Unverified HTTPS request", v)
+        self.assertIn("DeprecationWarning: legacy API", v)
+        self.assertIn("40 failed, 900 passed", v)
+        self.assertLess(len(v), 4000)
+        build = "\n".join([f"compiling module {i}" for i in range(2000)] + ["warning: dependency foo 1.2 is affected by CVE-2026-12345"])
+        b = reduce_output("make", build, 0, "abcdef012345")
+        self.assertIn("CVE-2026-12345", b)
+
 
 if __name__ == "__main__":
     unittest.main()
