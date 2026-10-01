@@ -55,7 +55,6 @@ hidden acceptance tests plus the full visible suite.
 - The runtime's refusals did not trigger in the acceptance runs (agents did
   not reread unchanged files or rerun passing tests); the agents recorded no
   semantic notes, so later sessions were hydrated with derived state only.
-- Rahul Operating Standard was not used anywhere.
 
 ## OpenAI
 
