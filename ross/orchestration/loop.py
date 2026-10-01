@@ -53,10 +53,9 @@ class Session:
         self.start_sha = evidence.git(self.root, "rev-parse", "HEAD")
         self.gate = Gate(Workspace(self.root, g.get("dirty", [])), Authority(user_request))
         self.kind = ctxpol.classify(user_request)
-        use_store = profile.on("memory") and self.kind != "simple"  # dormant for simple tasks: no state created
-        self.store = SQLiteStateStore(self.root) if use_store else None
-        self.memory = Memory(self.store, self.root) if self.store else None
-        self.telemetry = Telemetry(self.store, self.session_id)
+        self._use_store = profile.on("memory") and self.kind != "simple"  # dormant for simple tasks: no state created
+        self.store, self.memory = None, None  # opened in run() and always closed there
+        self.telemetry = Telemetry(None, self.session_id)
         self.artifacts = Artifacts(self.root)
         self.scheduler = Scheduler(self)
         self.tools = Tools(self)
@@ -100,6 +99,17 @@ class Session:
 
     # ------------------------------------------------------------ loop
     def run(self):
+        if self._use_store:
+            self.store = SQLiteStateStore(self.root)
+            self.memory = Memory(self.store, self.root)
+            self.telemetry = Telemetry(self.store, self.session_id)
+        try:
+            return self._run()
+        finally:
+            if self.store:
+                self.store.close()  # one connection per session; never left open
+
+    def _run(self):
         messages = [{"role": "user", "content": [{"type": "text", "text": ctxpol.first_message(self.prompt, self._blocks())}]}]
         usage, cost, calls, tool_calls, result_chars, denied = Usage(), 0.0, 0, 0, 0, []
         final_text, status, detail = "", "done", ""
@@ -168,8 +178,6 @@ class Session:
                 self.telemetry("calls_saved_by_stop_policy", 1, "COUNTED")
                 break
         self._remember(final_text, status)
-        if self.store:
-            self.store.close()  # one connection per session; never left open
         return Result(status, final_text, calls, usage, round(cost, 6), "ESTIMATED from " + str(self.governor.version), tool_calls,
                       result_chars, denied, detail, messages if self.keep_messages else [])
 
