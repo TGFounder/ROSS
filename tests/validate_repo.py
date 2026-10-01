@@ -99,8 +99,8 @@ def validate_text(all_files: list[Path]) -> None:
             if "\t" in line:
                 fail(f"tab character: {path.relative_to(ROOT)}:{number}")
         relative = path.relative_to(ROOT)
-        immutable_plugin_runtime = relative.parts[:5] == (
-            "distribution", "claude", "ross", "skills", "ross"
+        immutable_plugin_runtime = relative.parts[:1] == ("distribution",) and relative.parts[2:5] == (
+            "ross", "skills", "ross"
         )
         if path.suffix.lower() == ".md" and not immutable_plugin_runtime:
             for target in link_pattern.findall(text):
@@ -127,7 +127,7 @@ def validate_text(all_files: list[Path]) -> None:
 
 def validate_claude_distribution() -> None:
     result = subprocess.run(
-        [sys.executable, str(ROOT / "distribution" / "claude" / "build.py"), "check"],
+        [sys.executable, str(ROOT / "distribution" / "build.py"), "check"],
         capture_output=True, text=True,
     )
     if result.returncode != 0:

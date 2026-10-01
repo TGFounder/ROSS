@@ -1,6 +1,5 @@
 {
   "name": "ross",
-  "displayName": "ROSS — Reliable Operating Super Skill",
   "version": "1.1.0",
   "description": "Makes AI agent work go further: keeps compact local project state across sessions, skips unchanged rereads and retests, stops repeated failing retries, and keeps authority and evidence discipline. Local only, no network, no telemetry upload.",
   "author": {
@@ -10,10 +9,6 @@
   },
   "homepage": "https://github.com/TGFounder/ROSS",
   "repository": "https://github.com/TGFounder/ROSS",
-  "documentationUrl": "https://github.com/TGFounder/ROSS/blob/candidate/ross-efficiency-runtime/distribution/claude/ross/README.md",
-  "privacyPolicyUrl": "https://github.com/TGFounder/ROSS/blob/candidate/ross-efficiency-runtime/distribution/claude/ross/PRIVACY.md",
-  "supportUrl": "https://github.com/TGFounder/ROSS/blob/candidate/ross-efficiency-runtime/distribution/claude/ross/SUPPORT.md",
-  "termsOfServiceUrl": "https://github.com/TGFounder/ROSS/blob/candidate/ross-efficiency-runtime/distribution/claude/ross/LICENSE",
   "license": "Apache-2.0",
   "keywords": [
     "efficiency",

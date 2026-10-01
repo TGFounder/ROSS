@@ -1,0 +1,74 @@
+{
+  "description": "ROSS efficiency runtime: local state, read and test reuse, retry guard",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/ross/runtime/ross.py\" hook SessionStart",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/ross/runtime/ross.py\" hook PreToolUse",
+            "timeout": 15
+          }
+        ],
+        "matcher": "Read|Bash"
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/ross/runtime/ross.py\" hook PostToolUse",
+            "timeout": 15
+          }
+        ],
+        "matcher": "Read|Bash"
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/ross/runtime/ross.py\" hook Stop",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/ross/runtime/ross.py\" hook SessionEnd",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/ross/runtime/ross.py\" hook PostToolUseFailure",
+            "timeout": 15
+          }
+        ],
+        "matcher": "Read|Bash"
+      }
+    ]
+  }
+}

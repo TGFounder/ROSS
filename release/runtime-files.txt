@@ -10,10 +10,12 @@ profiles/README.md
 profiles/example.json
 profiles/profile.schema.json
 references/authority-and-precedence.md
+references/efficiency-runtime.md
 references/execution-quality-and-efficiency.md
 references/improvement-governance.md
 references/profiles.md
 references/reality-context-and-evidence.md
 references/security.md
+runtime/ross.py
 scripts/ross.ps1
 scripts/ross.sh
