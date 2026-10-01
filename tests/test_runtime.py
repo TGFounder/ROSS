@@ -76,7 +76,7 @@ class StateTests(Base):
     def test_secret_filter(self):
         fake = "sk" + "-proj-" + "ABCDEFGHIJKLMNOPQRSTUV"
         ross.note(self.store, "fact", "api_key=" + fake + " and gh" + "p_" + "a" * 36 + " password: hunter2hunter2")
-        raw = (self.root / ".ross" / "state.json").read_text() + (self.root / ".ross" / "deltas.jsonl").read_text()
+        raw = (self.root / ".ross" / "state.json").read_text(encoding="utf-8") + (self.root / ".ross" / "deltas.jsonl").read_text(encoding="utf-8")
         self.assertNotIn("ABCDEFGHIJKLMNOP", raw)
         self.assertNotIn("hunter2", raw)
         self.assertNotIn("a" * 36, raw)
@@ -152,7 +152,7 @@ class HookTests(Base):
         self.assertEqual(st["next"], "wire currency into the export")
         self.assertIn("m1.py", st["changed"])
         self.assertTrue(all("__pycache__" not in c and not c.startswith("1.py") for c in st["changed"]))
-        raw = "".join(p.read_text() for p in (self.root / ".ross").glob("*.json*"))
+        raw = "".join(p.read_text(encoding="utf-8") for p in (self.root / ".ross").glob("*.json*"))
         self.assertNotIn("transcript", raw.lower())
         ctx = self.prompt("Continue.", session="s2")["hookSpecificOutput"]["additionalContext"]
         self.assertIn("Goal: Add a currency", ctx)
@@ -190,13 +190,13 @@ class HookTests(Base):
         f.write_text("".join(f"def f{i}():\n    return {i}\n\n" for i in range(200)))
         subprocess.run("git add -A && git commit -qm big", shell=True, cwd=self.root, check=True)
         p = {"cwd": str(self.root), "session_id": "s1", "tool_name": "Read", "tool_input": {"file_path": str(f)},
-             "tool_response": {"type": "text", "file": {"content": f.read_text()}}}
+             "tool_response": {"type": "text", "file": {"content": f.read_text(encoding="utf-8")}}}
         self.assertEqual(run_hook("PostToolUse", p), {})
-        f.write_text(f.read_text().replace("return 7\n", "return 777\n"))
-        p["tool_response"] = {"type": "text", "file": {"content": f.read_text()}}
+        f.write_text(f.read_text(encoding="utf-8").replace("return 7\n", "return 777\n"))
+        p["tool_response"] = {"type": "text", "file": {"content": f.read_text(encoding="utf-8")}}
         view = run_hook("PostToolUse", p)["hookSpecificOutput"]["updatedToolOutput"]
         self.assertIn("+    return 777", view)
-        self.assertLess(len(view), len(f.read_text()) / 5)
+        self.assertLess(len(view), len(f.read_text(encoding="utf-8")) / 5)
 
     def test_usage_is_measured_from_transcript(self):
         t = self.root / "t.jsonl"
@@ -211,7 +211,7 @@ class HookTests(Base):
         self.assertEqual((p.returncode, p.stdout), (0, ""))
 
     def test_no_network_imports(self):
-        src = RUNTIME.read_text()
+        src = RUNTIME.read_text(encoding="utf-8")
         for mod in ("socket", "urllib", "http.client", "requests"):
             self.assertNotIn(f"import {mod}", src)
 

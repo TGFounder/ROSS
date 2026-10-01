@@ -88,7 +88,7 @@ class Store:
     def load(self, name, default):
         p = self.path(name)
         try:
-            return json.loads(p.read_text())
+            return json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return default
 
@@ -97,19 +97,19 @@ class Store:
         p = self.path(name)
         tmp = p.with_suffix(p.suffix + ".tmp")
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        with os.fdopen(fd, "w") as f:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=1, sort_keys=True)
         os.replace(tmp, p)
 
     def append(self, name, record):
         self.ensure()
         fd = os.open(self.path(name), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-        with os.fdopen(fd, "a") as f:
+        with os.fdopen(fd, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, sort_keys=True) + "\n")
 
     def lines(self, name):
         try:
-            return [json.loads(l) for l in self.path(name).read_text().splitlines() if l.strip()]
+            return [json.loads(l) for l in self.path(name).read_text(encoding="utf-8").splitlines() if l.strip()]
         except (OSError, ValueError):
             return []
 
@@ -265,7 +265,7 @@ SYM_RE = re.compile(r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:def|class
 
 def symbols(path):
     try:
-        text = path.read_text(errors="replace")
+        text = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return []
     if path.suffix == ".py":
@@ -301,7 +301,7 @@ def repo_map(store, budget_chars=2400):
             continue
         rec = index.get(rel)
         if not rec or rec.get("hash") != h:
-            rec = {"hash": h, "symbols": symbols(p), "lines": sum(1 for _ in open(p, errors="replace"))}
+            rec = {"hash": h, "symbols": symbols(p), "lines": sum(1 for _ in open(p, encoding="utf-8", errors="replace"))}
             index[rel] = rec
             changed = True
         syms = ", ".join(f"{s}@{n}" for s, n in rec["symbols"][:10])
@@ -355,7 +355,7 @@ def artifact_view(store, aid, grep=None, lines=None):
     p = store.dir / "artifacts" / f"{aid}.txt"
     if not p.exists():
         return f"artifact {aid} not found (pruned or deleted)"
-    rows = p.read_text(errors="replace").splitlines()
+    rows = p.read_text(encoding="utf-8", errors="replace").splitlines()
     if grep:
         rx = re.compile(grep)
         return "\n".join(f"{i}: {l}" for i, l in enumerate(rows, 1) if rx.search(l))
@@ -379,7 +379,7 @@ def compress(cmd, text, failed, aid_cmd):
         body += _pick(lines, re.compile(r"^(FAILED|ERROR) |^E\s{2,}|^\S+\.py:\d+: |^(FAIL|ERROR): |^Ran \d+ tests|^(OK|FAILED \()"), 60)
         body += [l for l in lines if re.search(r"^=+ .*(passed|failed|error|no tests).*=+$", l)][-1:]
     elif re.search(r"jest|vitest|npm (run )?test|pnpm|yarn test", cmd):
-        body += _pick(lines, re.compile(r"✕|●|FAIL |Tests?:|Test Files|Error:|expected|received", re.I), 60)
+        body += _pick(lines, re.compile(r"\u2715|\u25cf|FAIL |Tests?:|Test Files|Error:|expected|received", re.I), 60)
     elif re.search(r"\btsc\b|typescript", cmd) or re.search(r"error TS\d+", text):
         body += _pick(lines, re.compile(r"error TS\d+|Found \d+ error"), 60)
     elif re.search(r"^git (diff|show|log)", cmd):
@@ -414,7 +414,7 @@ def transcript_usage(path):
     tot = {"input": 0, "output": 0, "cache_read": 0, "cache_write": 0, "messages": 0}
     seen = set()
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             for line in f:
                 try:
                     j = json.loads(line)
@@ -582,7 +582,7 @@ def handle_read(store, event, payload, session):
         old = git(store.root, "cat-file", "-p", prev["blob"])  # git is the source of truth; no copy stored
         if old:
             import difflib
-            diff = "".join(difflib.unified_diff(old.splitlines(True), Path(fp).read_text(errors="replace").splitlines(True),
+            diff = "".join(difflib.unified_diff(old.splitlines(True), Path(fp).read_text(encoding="utf-8", errors="replace").splitlines(True),
                                                 "before", "now", n=3))
             if diff and len(diff) < 0.6 * len(content):
                 metric(store, "reread_diffed", 1, session=session, detail=fp)
