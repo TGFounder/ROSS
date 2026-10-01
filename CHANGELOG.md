@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.2.0 — candidate (not accepted)
+
+- Automatic operational memory from host events; no agent-maintained state.
+- Resume block and repo symbol map injected once per session on resume or
+  coding prompts; nothing for short questions or at session start.
+- Heavy commands run through a local exec wrapper that keeps full output in a
+  bounded, redacted artifact store and returns only actionable lines.
+- Diff-on-reread for changed files; outline for very large reads.
+- Telemetry labelled MEASURED / COUNTED / ESTIMATED.
+- Kernel trimmed to about 525 body tokens.
+- Matched Claude result: −20.6% tokens, −10.5% cost, equal quality; 50% target
+  not achieved. See docs/REVIEW-v1.2.0-candidate.md.
+
+
 ## 1.1.0 — candidate (not accepted)
 
 ROSS exists to maximize useful human accomplishment per unit of AI compute.

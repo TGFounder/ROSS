@@ -118,7 +118,7 @@ class Store:
 def git(root, *args):
     try:
         r = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True, timeout=10)
-        return r.stdout.strip() if r.returncode == 0 else ""
+        return r.stdout.rstrip() if r.returncode == 0 else ""
     except (OSError, subprocess.SubprocessError):
         return ""
 
@@ -127,7 +127,8 @@ def git_state(root):
     sha = git(root, "rev-parse", "--short", "HEAD")
     if not sha:
         return {}
-    dirty = [l[3:] for l in git(root, "status", "--porcelain").splitlines() if l and not l[3:].startswith(".ross")]
+    dirty = [l[3:] for l in git(root, "status", "--porcelain", "--untracked-files=all").splitlines()
+             if len(l) > 3 and not l[3:].startswith(".ross") and "__pycache__" not in l and not l.endswith(".pyc")]
     return {"branch": git(root, "rev-parse", "--abbrev-ref", "HEAD"), "sha": sha, "dirty": dirty}
 
 

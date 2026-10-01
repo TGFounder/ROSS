@@ -151,6 +151,7 @@ class HookTests(Base):
         self.assertTrue(st["goal"].startswith("Add a currency"))
         self.assertEqual(st["next"], "wire currency into the export")
         self.assertIn("m1.py", st["changed"])
+        self.assertTrue(all("__pycache__" not in c and not c.startswith("1.py") for c in st["changed"]))
         raw = "".join(p.read_text() for p in (self.root / ".ross").glob("*.json*"))
         self.assertNotIn("transcript", raw.lower())
         ctx = self.prompt("Continue.", session="s2")["hookSpecificOutput"]["additionalContext"]

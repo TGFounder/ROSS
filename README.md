@@ -15,7 +15,7 @@ specialist expertise and enforceable platform controls.
 
 > **ROSS exists to maximize useful human accomplishment per unit of AI compute.**
 
-## v1.1.0 candidate: efficiency runtime
+## v1.2.0 candidate: efficiency engine
 
 This branch adds a local, standard-library runtime that helps the AI access you
 already pay for go further: compact project state carried between sessions,

@@ -35,3 +35,11 @@ Hooks invoke `python3`; Windows users need `python3` on PATH (or the `py`
 launcher alias). The runtime itself is portable and tested on all three OSes
 in CI. A pure skill cannot guarantee persistent memory on hosted chat
 surfaces.
+
+## v1.2.0 candidate efficiency engine
+
+| Host | Automatic memory | Output compression | Diff/outline reads | Status |
+|---|---|---|---|---|
+| Claude Code 2.1.286 | yes (UserPromptSubmit, Stop) | yes, via PreToolUse `updatedInput` exec wrapper; `updatedToolOutput` not applied by host | yes (Read tool) | VERIFIED live |
+| Codex | expected (same events and JSON) | unverified (`updatedInput` support not confirmed) | not applicable (no Read tool) | EXPECTED FROM SPEC; live test pending authorization |
+| Hosted chat (Claude apps, ChatGPT) | no | no | no | kernel rules only |

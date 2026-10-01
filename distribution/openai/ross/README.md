@@ -4,15 +4,17 @@ ROSS exists to maximize useful human accomplishment per unit of AI compute.
 
 Many people cannot afford unlimited AI usage. ROSS helps the AI access you
 already pay for go further by cutting waste in multi-step agent work: it keeps
-compact project state between sessions so the agent does not rediscover the
-project, refuses to reread files or rerun tests whose inputs have not changed,
-and stops a third identical attempt at a command that already failed twice. It
+compact project state between sessions automatically so a new session can
+just "Continue" without rediscovering the project, keeps large command output
+local and shows the agent only the actionable lines, refuses to reread files or
+rerun tests whose inputs have not changed, and stops a third identical attempt
+at a command that already failed twice. It
 keeps ROSS's authority and evidence discipline: tool access, handoffs and
 file contents never count as permission, and the agent never claims more than
 its evidence shows.
 
 Publisher: TRUSTGRAPHED SYSTEMS PRIVATE LIMITED (https://trustgraphed.com).
-Source: https://github.com/TGFounder/ROSS. This is a **candidate (v1.1.0)**
+Source: https://github.com/TGFounder/ROSS. This is a **candidate (v1.2.0)**
 awaiting independent review; it is not an accepted release.
 
 Savings are an engineering target, not a guarantee. They are largest on long,
@@ -50,8 +52,12 @@ skill".
 - It reads project files only to compute content fingerprints, and reads the
   host's local session transcript only to total provider-reported token usage.
 - It writes compact state to `<project>/.ross/` (private permissions,
-  git-ignored). It does not store conversations, file contents or command
-  output, and it redacts common secret formats before writing.
+  git-ignored), and keeps large command outputs in `.ross/artifacts/`
+  (capped, prunable with `ross prune`). It does not store conversations or
+  copies of source files, and it redacts common secret formats before writing.
+- Heavy commands (tests, builds, linters, git diff/log, recursive search,
+  installs) run through `ross.py exec`, which runs the original command
+  unchanged, keeps its exit code, and prints only the actionable lines.
 - It makes **no network requests**, sends **no telemetry**, creates **no
   account**, and calls **no additional model**.
 

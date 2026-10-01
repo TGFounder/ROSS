@@ -10,7 +10,7 @@ Anthropic's Claude directory and at https://github.com/TGFounder/ROSS.
 
 ROSS is a set of written instructions plus a small local runtime (one
 standard-library Python file) that the host runs through hooks. This policy
-covers the v1.1.0 candidate.
+covers the v1.2.0 candidate.
 
 ## What ROSS collects
 
@@ -18,12 +18,16 @@ ROSS sends nothing anywhere. It has no telemetry, makes no network requests,
 creates no accounts and calls no additional model.
 
 On your own machine, in `<project>/.ross/` (private file permissions,
-git-ignored), it stores compact working state: goals, decisions, constraints,
-blockers and next actions that the agent records; content fingerprints of
-files that were read; pass or fail results of commands with the fingerprint
-they ran against; and token counts totalled from the host's local session
-transcript. It does not store conversations, file contents or command output,
-and it redacts common secret formats before writing. You can inspect it with
+git-ignored), it stores compact working state: the goal taken from your coding
+prompt, the last few hundred characters of the agent's final message, changed
+file names, decisions or constraints you record, content fingerprints and
+symbol names of project files, pass or fail results of tests with the
+fingerprint they ran against, and token counts totalled from the host's local
+session transcript. When a command produces large output, the full output is
+kept in `.ross/artifacts/` (capped at 64 MB, oldest deleted first) so the agent
+can retrieve it without the whole output entering the conversation. It does
+not store conversations or copies of your source files, and it redacts common
+secret formats before writing anything. `ross prune` deletes stored outputs. You can inspect it with
 `ross status` and delete it with `ross forget --project` or
 `ross forget --everything`.
 
