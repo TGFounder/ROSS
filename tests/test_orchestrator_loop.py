@@ -15,6 +15,7 @@ from ross.orchestration.profile import Profile, system_prompt  # noqa: E402
 from ross.orchestration.tools import SCHEMAS  # noqa: E402
 from ross.providers.mock import MockProvider, text, tool, tools  # noqa: E402
 
+PY = "python3" if os.name == "posix" else "python"
 TASK = "The add function is broken and the tests fail. Fix the bug and make sure the whole suite passes."
 
 
@@ -30,9 +31,9 @@ def make_repo():
     return tmp, root
 
 
-FIX = [tools(("inspect", "a", {"path": "calc.py"}), ("inspect", "b", {"path": "README.md"}), ("run", "c", {"command": "python3 -m pytest -q"})),
+FIX = [tools(("inspect", "a", {"path": "calc.py"}), ("inspect", "b", {"path": "README.md"}), ("run", "c", {"command": PY + " -m pytest -q"})),
        tool("apply_patch", "d", path="calc.py", old="return a - b", new="return a + b"),
-       tool("run", "e", command="python3 -m pytest -q"),
+       tool("run", "e", command=PY + " -m pytest -q"),
        text("Fixed add to use +. Tests pass.")]
 
 
@@ -76,13 +77,13 @@ class Loop(unittest.TestCase):
     def test_ross_preflight_reduction_and_stop_policy(self):
         big = "\n".join(f"line {i} " + "x" * 60 for i in range(400))
         (self.root / "noise.py").write_text(f"print('''{big}''')\n")
-        script = [tools(("inspect", "a", {"path": "calc.py"}), ("run", "b", {"command": "python3 noise.py"})),
+        script = [tools(("inspect", "a", {"path": "calc.py"}), ("run", "b", {"command": PY + " noise.py"})),
                   tool("apply_patch", "c", path="calc.py", old="return a - b", new="return a + b"),
-                  tool("run", "d", say="Fixed add (it subtracted). Suite passes.", command="python3 -m pytest -q", final=True)]
+                  tool("run", "d", say="Fixed add (it subtracted). Suite passes.", command=PY + " -m pytest -q", final=True)]
         s, prov = self.session(script, Profile.ross())
         r = s.run()
         self.assertEqual((r.status, r.calls), ("done", 3))  # stop policy: no extra call after the passing final check
-        self.assertIn("Verified locally: `python3 -m pytest -q` exit 0", r.final_text)
+        self.assertIn(f"Verified locally: `{PY} -m pytest -q` exit 0", r.final_text)
         first = prov.requests[0].messages[0]["content"][0]["text"]
         self.assertIn("Repository facts (ROSS preflight)", first)
         self.assertTrue(first.endswith(TASK))
@@ -93,9 +94,9 @@ class Loop(unittest.TestCase):
         self.assertIn("line 399", s.artifacts.get(aid, grep="line 399"))
 
     def test_failed_final_check_continues(self):
-        script = [tool("run", "a", say="Done.", command="python3 -m pytest -q", final=True),
+        script = [tool("run", "a", say="Done.", command=PY + " -m pytest -q", final=True),
                   tool("apply_patch", "b", path="calc.py", old="return a - b", new="return a + b"),
-                  tool("run", "c", say="Fixed.", command="python3 -m pytest -q", final=True)]
+                  tool("run", "c", say="Fixed.", command=PY + " -m pytest -q", final=True)]
         r = self.session(script, Profile.ross())[0].run()
         self.assertEqual((r.status, r.calls), ("done", 3))
 
@@ -121,13 +122,14 @@ class Loop(unittest.TestCase):
         r = s.run()
         self.assertEqual(r.calls, 1)
         self.assertEqual(prov.requests[0].messages[0]["content"][0]["text"], "what does add return?")
+        self.assertEqual(prov.requests[0].system, system_prompt(Profile.baseline()))  # no kernel overhead
         self.assertFalse((self.root / ".ross").exists())
 
     def test_memory_resume_and_verified_test_reuse_with_invalidation(self):
         script = [tool("apply_patch", "a", path="calc.py", old="return a - b", new="return a + b"),
-                  tool("run", "b", say="Fixed add. Next: add a subtract function in the next session.", command="python3 -m pytest -q", final=True)]
+                  tool("run", "b", say="Fixed add. Next: add a subtract function in the next session.", command=PY + " -m pytest -q", final=True)]
         self.session(script, Profile.ross())[0].run()
-        s, prov = self.session([tool("run", "a", command="python3 -m pytest -q | tail -3"), text("All good.")], Profile.ross(), prompt="Continue.")
+        s, prov = self.session([tool("run", "a", command=PY + " -m pytest -q | tail -3"), text("All good.")], Profile.ross(), prompt="Continue.")
         r = s.run()
         first = prov.requests[0].messages[0]["content"][0]["text"]
         self.assertIn("Goal: The add function is broken", first)
@@ -140,6 +142,7 @@ class Loop(unittest.TestCase):
         s.run()
         self.assertIn("Stale, rerun before relying on it", prov.requests[0].messages[0]["content"][0]["text"])
 
+    @unittest.skipUnless(os.name == "posix", "POSIX shell variable expansion")
     def test_credentials_never_reach_tools_or_state(self):
         with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "anthropic-secret-credential-xyz"}):
             s, prov = self.session([tool("run", "a", command="echo key=[$ANTHROPIC_API_KEY]"), text("done")], Profile.ross())

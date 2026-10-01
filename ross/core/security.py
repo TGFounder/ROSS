@@ -70,7 +70,7 @@ class Gate:
     def _path(self, path, write, whole_file=False):
         real, rel = self.ws.resolve(path)
         shown = rel or path
-        if SECRET_PATH_RE.search("/" + (rel or real)) and not self.auth.grants("secret"):
+        if SECRET_PATH_RE.search("/" + (rel or real.replace(os.sep, "/"))) and not self.auth.grants("secret"):
             return Decision(False, Action.CONSEQUENTIAL_WRITE if write else Action.READ_ONLY,
                             f"{shown} looks like a secret; not read or changed without explicit user authority.", False)
         if not write:

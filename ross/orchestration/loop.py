@@ -17,7 +17,7 @@ from ..core.telemetry import Telemetry
 from ..providers.base import ModelRequest, ProviderError, estimate_tokens
 from ..storage.sqlite import SQLiteStateStore
 from .artifacts import Artifacts
-from .profile import system_prompt
+from .profile import Profile, system_prompt
 from .scheduler import Scheduler
 from .tools import SCHEMAS, Tools
 
@@ -38,11 +38,12 @@ class Result:
     tool_result_chars: int
     denied: list = field(default_factory=list)
     detail: str = ""
+    messages: list = field(default_factory=list)  # in memory only (evaluation checks); never persisted
 
 
 class Session:
     def __init__(self, root, provider, profile, budget, user_request, project_id="project", rate_override=None, skills=None,
-                 max_output=8192, max_calls_hard=60):
+                 max_output=8192, max_calls_hard=60, keep_messages=False):
         self.root = evidence.project_root(root)
         self.provider, self.profile, self.prompt, self.project_id = provider, profile, user_request, project_id
         self.caps = provider.capabilities
@@ -62,6 +63,7 @@ class Session:
         self.governor = Governor(budget, self.caps.pricing_key or self.caps.provider, self.caps.model, rate_override)
         self.max_output, self.max_calls_hard = max_output, max_calls_hard
         self.skills = skills
+        self.keep_messages = keep_messages
 
     # ------------------------------------------------------------ context
     def _blocks(self):
@@ -82,7 +84,8 @@ class Session:
         return blocks
 
     def _request(self, messages, max_output):
-        req = ModelRequest(system=system_prompt(self.profile), tools=SCHEMAS, messages=messages, max_output=max_output,
+        prefix_profile = Profile.baseline() if self.kind == "simple" else self.profile  # dormant: no kernel on simple tasks
+        req = ModelRequest(system=system_prompt(prefix_profile), tools=SCHEMAS, messages=messages, max_output=max_output,
                            cache=ctxpol.cache_plan(self.caps, self.profile.on("cache_policy")))
         if self.profile.on("context_selection") and self.governor.rates:
             r = self.governor.rates
@@ -166,7 +169,7 @@ class Session:
                 break
         self._remember(final_text, status)
         return Result(status, final_text, calls, usage, round(cost, 6), "ESTIMATED from " + str(self.governor.version), tool_calls,
-                      result_chars, denied, detail)
+                      result_chars, denied, detail, messages if self.keep_messages else [])
 
     # ------------------------------------------------------------ memory: the result of history, never the transcript
     def _remember(self, final_text, status):
