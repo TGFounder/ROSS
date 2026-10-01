@@ -14,7 +14,7 @@ import sys
 import time
 from pathlib import Path
 
-from ..core.budget import Budget
+from ..core.budget import Budget, RunBudget
 from ..orchestration.loop import Session
 from ..orchestration.profile import Profile
 
@@ -70,9 +70,13 @@ def transcript_text(messages):
     return json.dumps(messages)
 
 
+NOT_RUN_GLOBAL = "NOT RUN — GLOBAL BUDGET EXHAUSTED"
+
+
 class Harness:
-    def __init__(self, manifest_path, provider_factory, out_path, workdir):
+    def __init__(self, manifest_path, provider_factory, out_path, workdir, max_total_usd=None):
         self.mpath = Path(manifest_path)
+        self.run_budget = RunBudget(max_total_usd) if max_total_usd is not None else None
         self.m = load_manifest(manifest_path)
         self.provider_factory, self.out, self.work = provider_factory, Path(out_path), Path(workdir)
         d = self.mpath.parent
@@ -82,7 +86,8 @@ class Harness:
         s = self.m["settings"]
         b = self.m["budget_per_session"]
         sess = Session(repo, self.provider_factory(), profile, Budget(max_usd=b["max_usd"], max_calls=b["max_calls"],
-                       max_output_tokens=b.get("max_output_tokens")), prompt, max_output=s["max_output"], keep_messages=True)
+                       max_output_tokens=b.get("max_output_tokens")), prompt, max_output=s["max_output"], keep_messages=True,
+                       run_budget=self.run_budget)
         t0 = time.time()
         r = sess.run()
         u = r.usage
@@ -100,6 +105,9 @@ class Harness:
         make_repo(base, fx.FILES)
         recs = []
         for i, step in enumerate(wl["sessions"]):
+            if self.run_budget is not None and self.run_budget.exhausted:
+                recs.append(self._not_run(wl, i, profile_name, rep))
+                continue
             prompt = getattr(fx, step["prompt_attr"]) if "prompt_attr" in step else step["prompt"]
             r, rec = self._session(base, profile, prompt)
             check = step["check"]
@@ -129,6 +137,11 @@ class Harness:
                 f.write(json.dumps(r) + "\n")
         return recs
 
+    def _not_run(self, wl, session, profile_name, rep):
+        return dict(manifest=self.m["version"], workload=wl["id"], session=session, profile=profile_name, rep=rep, passed=False,
+                    status=NOT_RUN_GLOBAL, check=NOT_RUN_GLOBAL, calls=0, uncached=0, cache_write=0, cache_read=0, output=0, total=0,
+                    cost_usd=0.0, cost_class="NOT RUN", tool_calls=0, tool_result_chars=0, denied=[], seconds=0.0, final="")
+
     def run(self, reps=1, workloads=None):
         order = self.m["run_order"]  # alternate which profile goes first in each pair
         out = []
@@ -138,6 +151,13 @@ class Harness:
                     continue
                 pair = ["baseline", "ross"] if (rep % 2 == 0) == (order == "baseline-first-on-even") else ["ross", "baseline"]
                 for prof in pair:
+                    if self.run_budget is not None and self.run_budget.exhausted:  # never start work the cap cannot fund
+                        recs = [self._not_run(wl, i, prof, rep) for i in range(len(wl["sessions"]))]
+                        with open(self.out, "a") as f:
+                            for r in recs:
+                                f.write(json.dumps(r) + "\n")
+                        out += recs
+                        continue
                     out += self.run_workload(wl, prof, rep)
         return out
 
@@ -151,13 +171,18 @@ def main(argv=None):
     ap.add_argument("--workloads", default="")
     ap.add_argument("--out", default="results.jsonl")
     ap.add_argument("--workdir", default="eval-work")
+    ap.add_argument("--max-total-usd", type=float, default=None,
+                    help="hard cap on NEW provider spend for the whole run, shared by every session and profile")
     a = ap.parse_args(argv)
     if not os.environ.get("ANTHROPIC_API_KEY"):
         raise SystemExit("ANTHROPIC_API_KEY is not set: the live Track B evaluation needs the user's own Anthropic API key")
     from ..providers.anthropic import AnthropicProvider
     m = load_manifest(a.manifest)
-    h = Harness(a.manifest, lambda: AnthropicProvider(m["model"]), a.out, a.workdir)
+    h = Harness(a.manifest, lambda: AnthropicProvider(m["model"]), a.out, a.workdir, max_total_usd=a.max_total_usd)
     for r in h.run(a.reps, [w for w in a.workloads.split(",") if w]):
+        if r["status"] == NOT_RUN_GLOBAL:
+            print(r["workload"], r["session"], r["profile"], r["rep"], NOT_RUN_GLOBAL, flush=True)
+            continue
         print(r["workload"], r["session"], r["profile"], r["rep"], "pass" if r["passed"] else "FAIL", r["calls"], "calls", r["total"], "tokens",
               f"${r['cost_usd']:.4f}", flush=True)
 

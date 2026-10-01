@@ -43,7 +43,7 @@ class Result:
 
 class Session:
     def __init__(self, root, provider, profile, budget, user_request, project_id="project", rate_override=None, skills=None,
-                 max_output=8192, max_calls_hard=60, keep_messages=False):
+                 max_output=8192, max_calls_hard=60, keep_messages=False, run_budget=None):
         self.root = evidence.project_root(root)
         self.provider, self.profile, self.prompt, self.project_id = provider, profile, user_request, project_id
         self.caps = provider.capabilities
@@ -59,7 +59,8 @@ class Session:
         self.artifacts = Artifacts(self.root)
         self.scheduler = Scheduler(self)
         self.tools = Tools(self)
-        self.governor = Governor(budget, self.caps.pricing_key or self.caps.provider, self.caps.model, rate_override)
+        self.governor = Governor(budget, self.caps.pricing_key or self.caps.provider, self.caps.model, rate_override,
+                                 run_budget=run_budget)
         self.max_output, self.max_calls_hard = max_output, max_calls_hard
         self.skills = skills
         self.keep_messages = keep_messages
