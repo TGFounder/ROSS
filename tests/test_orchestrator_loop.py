@@ -143,6 +143,24 @@ class Loop(unittest.TestCase):
         s.run()
         self.assertIn("Stale, rerun before relying on it", prov.requests[0].messages[0]["content"][0]["text"])
 
+    def test_edit_inside_resumed_session_invalidates_verified_evidence(self):
+        """Regression: verified evidence shown at session start must not be reused after an edit in the same session."""
+        script = [tool("apply_patch", "a", path="calc.py", old="return a - b", new="return a + b"),
+                  tool("run", "b", say="Fixed add. Next: add a subtract function.", command=PY + " -m unittest -q", final=True)]
+        self.session(script, Profile.ross())[0].run()
+        broken = [tool("apply_patch", "a", path="calc.py", old="return a + b", new="return a * b"),
+                  tool("run", "b", say="Changed add. Tests pass.", command=PY + " -m unittest -q", final=True),
+                  text("Tests fail.")]
+        s, prov = self.session(broken, Profile.ross(), prompt="Continue.")
+        r = s.run()
+        self.assertIn("Verified, still valid", prov.requests[0].messages[0]["content"][0]["text"])  # valid at session start
+        self.assertEqual(len(prov.requests), 3, "session stopped on a stale 'already passed' result after an edit")
+        verify = prov.requests[2].messages[4]["content"][0]["content"]
+        self.assertNotIn("already passed on identical files", verify)    # actually rerun after the edit
+        self.assertFalse(verify.startswith("exit code 0"))
+        self.assertEqual((r.status, r.calls), ("done", 3))                 # stop policy did not fire on a failed check
+        self.assertEqual(r.final_text, "Tests fail.")
+
     @unittest.skipUnless(os.name == "posix", "POSIX shell variable expansion")
     def test_credentials_never_reach_tools_or_state(self):
         with mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "anthropic-secret-credential-xyz"}):

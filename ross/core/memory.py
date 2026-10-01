@@ -39,7 +39,10 @@ class Memory:
         return bool(item.fp_value) and self._current(item.fp_kind, item.fp_subject) == item.fp_value
 
     def recall(self, scopes, types=None, terms=None, limit=40):
-        """Valid items for the given (kind, id) scopes, most trustworthy and relevant first, plus stale ones separately."""
+        """Valid items for the given (kind, id) scopes, most trustworthy and relevant first, plus stale ones separately.
+        Fingerprints are recomputed on every recall: files may have changed since the last one (edits, commands, the user),
+        and evidence must never be judged against a fingerprint taken before that change."""
+        self._fp.clear()
         items = []
         for kind, sid in scopes:
             items += self.store.active(kind, sid, types)
