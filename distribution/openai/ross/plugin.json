@@ -1,6 +1,6 @@
 {
   "name": "ross",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Makes AI agent work go further: keeps compact local project state across sessions, skips unchanged rereads and retests, stops repeated failing retries, and keeps authority and evidence discipline. Local only, no network, no telemetry upload.",
   "author": {
     "name": "TRUSTGRAPHED SYSTEMS PRIVATE LIMITED",

@@ -1,7 +1,7 @@
 {
   "name": "ross",
   "displayName": "ROSS — Reliable Operating Super Skill",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Makes AI agent work go further: keeps compact local project state across sessions, skips unchanged rereads and retests, stops repeated failing retries, and keeps authority and evidence discipline. Local only, no network, no telemetry upload.",
   "author": {
     "name": "TRUSTGRAPHED SYSTEMS PRIVATE LIMITED",
@@ -10,10 +10,10 @@
   },
   "homepage": "https://github.com/TGFounder/ROSS",
   "repository": "https://github.com/TGFounder/ROSS",
-  "documentationUrl": "https://github.com/TGFounder/ROSS/blob/candidate/ross-efficiency-engine/distribution/claude/ross/README.md",
-  "privacyPolicyUrl": "https://github.com/TGFounder/ROSS/blob/candidate/ross-efficiency-engine/distribution/claude/ross/PRIVACY.md",
-  "supportUrl": "https://github.com/TGFounder/ROSS/blob/candidate/ross-efficiency-engine/distribution/claude/ross/SUPPORT.md",
-  "termsOfServiceUrl": "https://github.com/TGFounder/ROSS/blob/candidate/ross-efficiency-engine/distribution/claude/ross/LICENSE",
+  "documentationUrl": "https://github.com/TGFounder/ROSS/blob/candidate/ross-efficiency-engine-v2/distribution/claude/ross/README.md",
+  "privacyPolicyUrl": "https://github.com/TGFounder/ROSS/blob/candidate/ross-efficiency-engine-v2/distribution/claude/ross/PRIVACY.md",
+  "supportUrl": "https://github.com/TGFounder/ROSS/blob/candidate/ross-efficiency-engine-v2/distribution/claude/ross/SUPPORT.md",
+  "termsOfServiceUrl": "https://github.com/TGFounder/ROSS/blob/candidate/ross-efficiency-engine-v2/distribution/claude/ross/LICENSE",
   "license": "Apache-2.0",
   "keywords": [
     "efficiency",

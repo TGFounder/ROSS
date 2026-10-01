@@ -43,3 +43,11 @@ surfaces.
 | Claude Code 2.1.286 | yes (UserPromptSubmit, Stop) | yes, via PreToolUse `updatedInput` exec wrapper; `updatedToolOutput` not applied by host | yes (Read tool) | VERIFIED live |
 | Codex | expected (same events and JSON) | unverified (`updatedInput` support not confirmed) | not applicable (no Read tool) | EXPECTED FROM SPEC; live test pending authorization |
 | Hosted chat (Claude apps, ChatGPT) | no | no | no | kernel rules only |
+
+## v1.3.0 candidate efficiency engine v2
+
+| Host | Context levels | Shell read handling | Batching hint | Status |
+|---|---|---|---|---|
+| Claude Code 2.1.286 | yes (UserPromptSubmit `additionalContext`) | yes (PreToolUse `updatedInput`) | yes (PostToolUse `additionalContext`, applied) | VERIFIED live |
+| Codex | expected (same events and JSON) | unverified | unverified | EXPECTED FROM SPEC; live test pending |
+| Hosted chat (Claude apps, ChatGPT) | no | no | no | kernel rules only |

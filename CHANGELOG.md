@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.3.0 (candidate, not accepted)
+
+- Progressive context levels 0 to 3; automatic repository map removed; level 2
+  provides only files and symbols the task names, within a fixed budget.
+- Shell `cat`/`nl` reads served without repeats, as diffs when changed, as
+  outlines when very large; `# ross:full` bypass.
+- Grouped root-error view for test failures; parsers for eslint, installs, git
+  log, grep, listings and JSON. Test results keyed independently of `| tail`.
+- Fix: commands that read files are never compressed (v1.2.0 hid them).
+- Next step, deferred work and blockers derived from the agent's final
+  message; turn-economy counters; one batching hint per session.
+- Kernel 633 to 572 tokens (characters/4).
+- Matched Claude result: sessions passing 6/6 vs 4/6; tokens per successful
+  session −26.5%, cost −20.7%; raw totals +10.2% tokens and +18.9% cost because
+  ROSS completed work the baseline did not; 35% stretch not achieved. See
+  docs/REVIEW-v1.3.0-candidate.md.
+
 ## 1.2.0 — candidate (not accepted)
 
 - Automatic operational memory from host events; no agent-maintained state.

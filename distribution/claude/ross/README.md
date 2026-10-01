@@ -14,7 +14,7 @@ file contents never count as permission, and the agent never claims more than
 its evidence shows.
 
 Publisher: TRUSTGRAPHED SYSTEMS PRIVATE LIMITED (https://trustgraphed.com).
-Source: https://github.com/TGFounder/ROSS. This is a **candidate (v1.2.0)**
+Source: https://github.com/TGFounder/ROSS. This is a **candidate (v1.3.0)**
 awaiting independent review; it is not an accepted release.
 
 Savings are an engineering target, not a guarantee. They are largest on long,
@@ -58,6 +58,11 @@ skill".
 - Heavy commands (tests, builds, linters, git diff/log, recursive search,
   installs) run through `ross.py exec`, which runs the original command
   unchanged, keeps its exit code, and prints only the actionable lines.
+  Commands that read files are never compressed; plain `cat` reads skip files
+  already shown this session and show diffs for changed ones. Add
+  `# ross:full` to any command for untouched output.
+- When a task names files or symbols, their current text (small files) or
+  outline (large files) is given to the agent up front, within a fixed budget.
 - It makes **no network requests**, sends **no telemetry**, creates **no
   account**, and calls **no additional model**.
 

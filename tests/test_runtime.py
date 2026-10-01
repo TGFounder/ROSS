@@ -158,9 +158,121 @@ class HookTests(Base):
         self.assertIn("Goal: Add a currency", ctx)
         self.assertIn("Next: wire currency", ctx)
         self.assertIn("m1.py", ctx)
-        self.assertIn("f2@1", ctx)  # repo symbol map
+        self.assertNotIn("f2@1", ctx)  # no repository map unless the task names something
         self.assertLess(len(ctx) / 4, 1200)
         self.assertEqual(self.prompt("Continue.", session="s2"), {})  # only once per session
+
+    def test_level2_hydrates_only_what_the_task_names(self):
+        (self.root / "PLAN.md").write_text("Phase 2: change pkg/pricing.py and add `is_remote` to pkg/zones.py\n")
+        (self.root / "pkg").mkdir()
+        (self.root / "pkg/pricing.py").write_text("def quote(x):\n    return x * 2\n")
+        (self.root / "pkg/zones.py").write_text("def is_remote(pc):\n    return False\n\n\n" + "".join(f"Z{i} = {i}\n" for i in range(2000)))
+        (self.root / "pkg/unrelated.py").write_text("def other():\n    return 0\n")
+        subprocess.run("git add -A && git commit -qm plan", shell=True, cwd=self.root, check=True)
+        ctx = self.prompt("Please implement the work described in PLAN.md and update the tests")["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("=== PLAN.md (current, whole file)", ctx)
+        self.assertIn("=== pkg/pricing.py (current, whole file)", ctx)  # named by the plan, small: whole
+        self.assertIn("pkg/zones.py (2004 lines): is_remote@1", ctx)  # large: outline only
+        self.assertNotIn("unrelated", ctx)
+        self.assertNotIn("Z1999", ctx)
+        self.assertLess(len(ctx), ross.HYDRATE_BUDGET + 200)
+        self.assertEqual(self.prompt("Please implement the work described in PLAN.md and update the tests"), {})  # not twice
+        sym = self.prompt("Fix the bug in `is_remote` so that remote postcodes are detected", session="s9")
+        self.assertIn("pkg/zones.py:1-", sym["hookSpecificOutput"]["additionalContext"])  # exact symbol range
+
+    def test_shell_cat_is_wrapped_and_deduplicated(self):
+        r = self.bash("PreToolUse", "cat a.py")
+        cmd = r["hookSpecificOutput"]["updatedInput"]["command"]
+        self.assertIn(" view ", cmd)
+        self.assertEqual(self.bash("PreToolUse", f"cat a.py # {ross.FULL_MARK}"), {})  # escape hatch: untouched
+        self.assertEqual(self.bash("PreToolUse", "cat a.py | grep x"), {})  # pipelines untouched
+        env = dict(os.environ, ROSS_SESSION="s1")
+        run = lambda c: subprocess.run([sys.executable, str(RUNTIME), "view", c], cwd=self.root, env=env, capture_output=True, text=True)
+        self.assertEqual(run("cat a.py").stdout, "x = 1\n")
+        self.assertIn("unchanged since", run("cat a.py").stdout)
+        big = self.root / "big.py"
+        big.write_text("".join(f"def f{i}():\n    return {i}\n\n" for i in range(3000)))
+        subprocess.run("git add -A && git commit -qm big", shell=True, cwd=self.root, check=True)
+        first = run("cat big.py").stdout
+        self.assertIn("Outline: f0@1, f1@4", first)
+        self.assertLess(len(first), 4000)
+        self.assertNotEqual(run("cat missing.py").returncode, 0)
+
+    def test_shell_reread_of_changed_file_is_a_diff(self):
+        f = self.root / "c.py"
+        f.write_text("".join(f"v{i} = {i}\n" for i in range(300)))
+        subprocess.run("git add -A && git commit -qm c", shell=True, cwd=self.root, check=True)
+        env = dict(os.environ, ROSS_SESSION="s1")
+        run = lambda: subprocess.run([sys.executable, str(RUNTIME), "view", "cat c.py"], cwd=self.root, env=env, capture_output=True, text=True).stdout
+        run()
+        f.write_text(f.read_text().replace("v7 = 7\n", "v7 = 777\n"))
+        out = run()
+        self.assertIn("+v7 = 777", out)
+        self.assertLess(len(out), 600)
+
+    def test_test_key_ignores_output_trimming_and_keeps_compound_commands(self):
+        self.bash("PostToolUse", "python3 -m pytest -q 2>&1 | tail -20", output="3 passed in 0.1s")
+        self.assertEqual(decision(self.bash("PreToolUse", "python3 -m pytest -q | tail -5")), "deny")
+        self.assertIsNone(decision(self.bash("PreToolUse", "git status && python3 -m pytest -q")))  # never hide git status
+
+    def test_deferred_work_becomes_next(self):
+        nxt, blocker = ross.next_and_blocker("Fixed both bugs; the suite passes.\n\nI haven't started ROADMAP.md Phase 2, as you said "
+                                             "that's for the next session.")
+        self.assertIn("ROADMAP.md Phase 2", nxt)
+        self.assertIsNone(blocker)
+        self.assertEqual(ross.next_and_blocker("Done.\nBlocked on: staging credentials")[1], "staging credentials")
+
+    def test_turn_stats_and_single_nudge(self):
+        t = self.root / "t.jsonl"
+        rows = []
+        def turn(i, name, inp):
+            rows.append({"type": "assistant", "message": {"id": f"m{i}", "content": [{"type": "tool_use", "id": f"t{i}", "name": name, "input": inp}]}})
+            rows.append({"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": f"t{i}", "content": "ok"}]}})
+        turn(1, "Bash", {"command": "ls"})
+        turn(2, "Read", {"file_path": "a.py"})
+        t.write_text("\n".join(map(json.dumps, rows)))
+        ross.note(self.store, "goal", "g")
+        p = {"cwd": str(self.root), "session_id": "s1", "tool_name": "Read", "tool_input": {"file_path": "/nope"},
+             "transcript_path": str(t), "tool_response": "x"}
+        p["tool_name"] = "Bash"
+        p["tool_input"] = {"command": "ls"}
+        first = run_hook("PostToolUse", p)
+        self.assertEqual(first["hookSpecificOutput"]["additionalContext"], ross.NUDGE)
+        self.assertEqual(run_hook("PostToolUse", p), {})  # once per session
+        turn(3, "Edit", {"file_path": "a.py"})
+        turn(4, "Bash", {"command": "python3 -m pytest -q"})
+        t.write_text("\n".join(map(json.dumps, rows)))
+        s = ross.turn_stats(str(t))
+        self.assertEqual((s["turns"], s["inspection_only"], s["to_implementation"], s["to_verified"]), (4, 2, 3, 4))
+
+    def test_structured_compression(self):
+        log = "\n".join(f"commit {i:040x}\nAuthor: a\nDate: d\n\n    subject {i}\n" for i in range(200))
+        v = ross.compress("git log", log, False, "x")
+        self.assertIn("200 commits", v)
+        self.assertIn("subject 59", v)
+        self.assertNotIn("Author", v)
+        grep = "\n".join(f"src/f{i % 7}.py:{i}: match {i}" for i in range(500))
+        self.assertIn("500 matches in 7 files", ross.compress("grep -rn match src", grep, False, "x"))
+        data = json.dumps([{"id": i, "name": "n" * 20} for i in range(500)])
+        self.assertIn("JSON list with 500 items; keys: id, name", ross.compress("cat x.json", data, False, "x"))
+
+    def test_requested_reads_are_never_compressed(self):
+        self.assertEqual(self.bash("PreToolUse", "git status && cat a.py && python3 -m pytest -q | tail -3"), {})
+        big = "\n".join(f"line {i} of a.py" for i in range(400))
+        r = self.bash("PostToolUse", "git log --oneline | head; cat a.py", output=big)
+        self.assertNotIn("updatedToolOutput", r.get("hookSpecificOutput", {}))
+
+    def test_pure_test_with_tail_is_served_as_root_errors(self):
+        r = self.bash("PreToolUse", "python3 -m pytest -q 2>&1 | tail -30")
+        cmd = r["hookSpecificOutput"]["updatedInput"]["command"]
+        self.assertTrue(cmd.endswith("exec 'python3 -m pytest -q'"), cmd)
+        self.assertEqual(ross.test_key("python - <<'E'\nopen('x','w').write('y')\nE\npython3 -m pytest -q 2>&1 | tail -5"), "python3 -m pytest -q")
+        sec = lambda n, err: [f"____ test_{n} ____", "    def test():", ">       f()", f"E       KeyError: '{err}'", "", "x.py:3: KeyError"]
+        lines = sec(1, "A") + sec(2, "B") + sec(3, "C") + ["=== short test summary info ===", "3 failed in 0.1s"]
+        v = ross.compress("python3 -m pytest -q", "\n".join(lines) + "\n" + "." * 4000, True, "x")
+        self.assertIn("3 failed in 0.1s", v)
+        self.assertIn("3 failing with: E KeyError: _", v)
+        self.assertIn("at x.py:3: KeyError", v)
 
     def test_large_output_compressed_and_retrievable(self):
         log = "\n".join(f"tests/test_x.py::test_{i} PASSED" for i in range(400))

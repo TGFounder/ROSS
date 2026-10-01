@@ -5,7 +5,7 @@ ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/ross-posix.XXXXXX")
 TMP_ROOT=$(cd "$TMP_ROOT" && pwd -P)
 trap 'rm -rf "$TMP_ROOT"' EXIT HUP INT TERM
-VERSION=1.2.0
+VERSION=1.3.0
 SHA=$(git -C "$ROOT" rev-parse HEAD)
 
 python3 "$ROOT/scripts/package.py" --source "$ROOT" --output "$TMP_ROOT/one" --version "$VERSION" --sha "$SHA" >/dev/null

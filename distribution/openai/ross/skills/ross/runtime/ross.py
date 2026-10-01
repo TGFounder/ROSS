@@ -6,12 +6,14 @@ opens a network connection. State lives in <project>/.ross/ (git-ignored).
 
 Commands:
   status                 compact view of durable state and local counters
-  context [--budget N]   minimum context for the next decision (~N tokens)
+  context [--budget N] [--deep]  continuation state (level 1; --deep adds level 3 history)
+  map [CHARS]            path: symbol@line map of the repository (never injected automatically)
   note KIND TEXT         record one semantic delta (goal, next, decision,
                          constraint, preserve, blocker, fact, done)
   note --remove KIND TEXT
   checkpoint [--next T]  record a resume point (git state is derived)
   savings [--all]        local efficiency meter (measured / counted / estimated)
+  exec CMD / view CMD    run a command / plain file read with the minimum actionable output
   artifact ID [--grep P | --lines A-B]   retrieve a full tool output kept locally
   prune [MAX_BYTES]      prune stored artifacts (default: all)
   forget [KIND [TEXT]] | --project | --everything
@@ -28,7 +30,7 @@ import sys
 import time
 from pathlib import Path
 
-VERSION = "1.2.0-candidate"
+VERSION = "1.3.0-candidate"
 KINDS = ("goal", "next", "decision", "constraint", "preserve", "blocker", "fact", "done")
 SINGLE = ("goal", "next")
 TEST_RE = re.compile(r"(^|[\s;&|(])(pytest|py\.test|python3? -m (pytest|unittest)|npm (run )?test|pnpm (run )?test|yarn test|"
@@ -167,6 +169,30 @@ def norm_cmd(cmd):
     return re.sub(r"\s+", " ", str(cmd or "")).strip()
 
 
+def _trim(cmd):
+    c = re.sub(r"\s*#\s*" + re.escape(RERUN_MARK), "", norm_cmd(cmd))
+    c = re.sub(r"\s+2>&1", "", c)
+    while True:
+        new = re.sub(r"\s*\|\s*(tail|head|grep [^|]+)(\s+-n)?(\s+-?\d+)?\s*$", "", c)
+        if new == c:
+            return c
+        c = new
+
+
+def test_key(cmd):
+    """One key per test invocation regardless of output trimming (`2>&1 | tail -20`), chained status commands,
+    or a preceding edit script on earlier lines."""
+    if isinstance(cmd, list):
+        cmd = " ".join(map(str, cmd))
+    segs = [x.strip() for x in re.split(r"\n|&&|;|\|\|", str(cmd or "")) if x.strip()]
+    tests = [x for x in segs if (m := TEST_RE.search(x)) and m.start() < 40]
+    return _trim(tests[-1]) if tests else _trim(cmd)
+
+
+def pure_test(cmd):
+    return test_key(cmd) == _trim(cmd)
+
+
 # ------------------------------------------------------------------ semantic state (deltas)
 def state(store):
     return store.load("state.json", {})
@@ -216,40 +242,51 @@ def verified_tests(store, cur_hash):
     return out
 
 
-def context(store, budget=600, with_map=False, resume=True):
-    """Compact continuation state: the result of history, not history itself."""
+def context(store, budget=400, deep=False):
+    """Level 1 continuation state (the result of history, not history); level 3 with deep=True."""
     st = state(store)
-    lines = []
-    if resume and st:
-        g = git_state(store.root)
-        lines.append("ROSS resume (derived from the last session; re-verify only what you change):")
-        for kind, label in (("goal", "Goal"), ("next", "Next")):
+    if not any(st.get(k) for k in ("goal", "next", "last_result", "changed", "blocker", "constraint", "preserve")):
+        return ""
+    g = git_state(store.root)
+    lines = ["ROSS resume. Continuing means carrying on with the unfinished or explicitly deferred work below; "
+             "this state was derived at the end of the last session, so re-verify only what you change."]
+    if st.get("goal"):
+        lines.append("Goal: " + st["goal"])
+    if st.get("next"):
+        lines.append("Next: " + st["next"])
+    for kind, label in (("blocker", "Blocker"), ("constraint", "Constraints"), ("preserve", "Do not touch")):
+        if st.get(kind):
+            lines.append(f"{label}: " + "; ".join(reversed(st[kind][-4:])))
+    if st.get("last_result"):
+        lines.append("Last session ended with: " + st["last_result"].replace("\n", " ")[-480:])
+    if g:
+        d = g["dirty"]
+        moved = st.get("end_sha") and st["end_sha"] != g["sha"]
+        lines.append(f"Git: {g['branch']} @ {g['sha']}" + (f" (was {st['end_sha']} at session end)" if moved else "")
+                     + (f"; uncommitted: {', '.join(d[:10])}" + (" ..." if len(d) > 10 else "") if d else "; clean"))
+    if st.get("changed"):
+        lines.append("Changed last session: " + ", ".join(st["changed"][:12]))
+    h = inputs_hash(store.root)
+    cmds = store.load("commands.json", {})
+    ok = [c for c, r in cmds.items() if r.get("result") == "pass" and h and r.get("inputs") == h]
+    stale = [c for c, r in cmds.items() if r.get("result") == "pass" and c not in ok]
+    bad = [f"`{c}`: {r.get('summary', '')[:140]}" for c, r in cmds.items() if r.get("result") == "fail"]
+    if ok:
+        lines.append("Tests still passing on identical inputs (no need to rerun): " + "; ".join(
+            f"`{c}` ({cmds[c].get('summary', '')[:60]})" for c in ok[:3]))
+    if stale:
+        lines.append("Passed before, inputs changed since: " + "; ".join(f"`{c}`" for c in stale[:3]))
+    if bad:
+        lines.append("Last known failures: " + "; ".join(bad[:3]))
+    if deep:
+        for kind, label in (("decision", "Decisions"), ("fact", "Facts"), ("done", "Done")):
             if st.get(kind):
-                lines.append(f"{label}: {st[kind]}")
-        if st.get("last_result"):
-            lines.append("Last result: " + st["last_result"].replace("\n", " ")[-420:])
-        if g:
-            d = g["dirty"]
-            lines.append(f"Git: {g['branch']} @ {g['sha']}" + (f"; uncommitted: {', '.join(d[:10])}" + (" ..." if len(d) > 10 else "") if d else "; clean"))
-        if st.get("changed"):
-            lines.append("Changed last session: " + ", ".join(st["changed"][:12]))
-        for kind, label in (("blocker", "Blockers"), ("constraint", "Constraints"), ("preserve", "Do not touch"),
-                            ("decision", "Decisions"), ("fact", "Facts")):
-            if st.get(kind):
-                lines.append(f"{label}: " + "; ".join(reversed(st[kind][-5:])))
-        h = inputs_hash(store.root)
-        cmds = store.load("commands.json", {})
-        ok = [c for c, r in cmds.items() if r.get("result") == "pass" and h and r.get("inputs") == h]
-        bad = [f"`{c}` FAILED: {r.get('summary', '')[:160]}" for c, r in cmds.items() if r.get("result") == "fail"]
-        if ok:
-            lines.append("Still passing (inputs unchanged, no need to rerun): " + "; ".join(f"`{c}`" for c in ok[:4]))
-        if bad:
-            lines.append("Last known failures: " + "; ".join(bad[:3]))
-    if with_map:
-        m = repo_map(store, budget_chars=2400)
-        if m:
-            lines.append("Repo map (path: symbol@line):\n" + m)
-    text, limit = "", budget * 4 + (2600 if with_map else 0)
+                lines.append(f"{label}: " + "; ".join(reversed(st[kind][-10:])))
+        for c in store.lines("checkpoints.jsonl")[-5:]:
+            lines.append(f"Checkpoint {c.get('sha')} on {c.get('branch')}: next={c.get('next')}")
+    elif any(st.get(k) for k in ("decision", "fact", "done")):
+        lines.append(f'Older decisions and facts: python3 "{Path(__file__).resolve()}" context --deep')
+    text, limit = "", budget * 4 if not deep else 1 << 20
     for l in lines:
         if len(text) + len(l) + 1 > limit:
             break
@@ -286,14 +323,17 @@ def symbols(path):
     return [[m.group(1), i] for i, l in enumerate(text.splitlines(), 1) if (m := SYM_RE.match(l))][:40]
 
 
-def repo_map(store, budget_chars=2400):
-    files = [f for f in git(store.root, "ls-files", "-co", "--exclude-standard").splitlines()
-             if Path(f).suffix in SRC_EXT and not f.startswith(".ross/")][:400]
-    if len(files) < 3:
-        return ""
+def tracked(root):
+    return [f for f in git(root, "ls-files", "-co", "--exclude-standard").splitlines()
+            if not f.startswith(".ross/") and "__pycache__" not in f][:MAX_HASH_FILES]
+
+
+def index_symbols(store, files):
+    """Symbol index (hashes and names only, never content), refreshed only for files that changed."""
+    src = [f for f in files if Path(f).suffix in SRC_EXT][:400]
     index = store.load("index.json", {})
-    changed, out = False, []
-    for rel in sorted(files):
+    changed = False
+    for rel in src:
         p = store.root / rel
         try:
             h = file_hash(p)
@@ -301,13 +341,22 @@ def repo_map(store, budget_chars=2400):
             continue
         rec = index.get(rel)
         if not rec or rec.get("hash") != h:
-            rec = {"hash": h, "symbols": symbols(p), "lines": sum(1 for _ in open(p, encoding="utf-8", errors="replace"))}
-            index[rel] = rec
+            index[rel] = {"hash": h, "symbols": symbols(p), "lines": sum(1 for _ in open(p, encoding="utf-8", errors="replace"))}
             changed = True
+    if changed:
+        store.save("index.json", {k: v for k, v in index.items() if k in src})
+    return index
+
+
+def repo_map(store, budget_chars=2400):
+    """Path: symbol@line map. Not injected automatically; `ross map` prints it on request."""
+    files = tracked(store.root)
+    index = index_symbols(store, files)
+    out = []
+    for rel in sorted(index):
+        rec = index[rel]
         syms = ", ".join(f"{s}@{n}" for s, n in rec["symbols"][:10])
         out.append(f"{rel} ({rec['lines']}L): {syms}" if syms else f"{rel} ({rec['lines']}L)")
-    if changed:
-        store.save("index.json", {k: v for k, v in index.items() if k in files})
     text = ""
     for l in out:
         if len(text) + len(l) + 1 > budget_chars:
@@ -315,6 +364,114 @@ def repo_map(store, budget_chars=2400):
             break
         text += l + "\n"
     return text.rstrip()
+
+
+# ------------------------------------------------------------------ progressive hydration (level 2: what this task names)
+PATH_RE = re.compile(r"(?<![\w/.-])((?:[\w.-]+/)*[\w-][\w.-]*\.(?:py|pyi|js|jsx|ts|tsx|mjs|cjs|go|rs|java|kt|rb|php|cs|c|cc|cpp|h|hpp|"
+                     r"swift|md|rst|txt|json|toml|ya?ml|cfg|ini|sh|sql))(?![\w/])")
+IDENT_RE = re.compile(r"`([A-Za-z_][\w.]{2,80})`|\b([A-Za-z_]\w*\.[A-Za-z_]\w+|[a-z][a-z0-9]*_[a-z0-9_]+|"
+                      r"[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+|[A-Z][A-Z0-9]*_[A-Z0-9_]+)\b")
+SECRET_FILE_RE = re.compile(r"(^|/)(\.env[^/]*|[^/]*\.(pem|key|p12|pfx|keystore)|id_[rd]sa[^/]*|[^/]*(secret|credential)[^/]*)$", re.I)
+SMALL_FILE = 4000      # chars; named files up to this size are provided whole
+HYDRATE_BUDGET = 9000  # chars (~2.3k tokens) for everything level 2 adds
+
+
+def anchors(texts):
+    """Deterministic relevance signals: file paths and code identifiers that the text names."""
+    paths, idents = [], []
+    for t in texts:
+        for m in PATH_RE.finditer(t or ""):
+            if m.group(1) not in paths:
+                paths.append(m.group(1))
+        for m in IDENT_RE.finditer(t or ""):
+            name = m.group(1) or m.group(2)
+            if name and not PATH_RE.fullmatch(name) and name not in idents:
+                idents.append(name)
+    return paths, idents[:20]
+
+
+def resolve_paths(files, names):
+    out = []
+    for n in names:
+        n = n[2:] if n.startswith("./") else n
+        for f in [f for f in files if f == n or f.endswith("/" + n)][:2]:
+            if f not in out and not SECRET_FILE_RE.search(f):
+                out.append(f)
+    return out
+
+
+def mark_seen(store, rel, session, how):
+    seen = store.load("seen.json", {})
+    p = store.root / rel
+    seen[rel] = {"hash": file_hash(p), "blob": git_blob(store.root, p), "session": session, "how": how}
+    store.save("seen.json", seen)
+
+
+def hydrate(store, texts, session, budget=HYDRATE_BUDGET):
+    """Level 2: current contents of small files the task names, outlines of large ones and of files those
+    documents name, and the exact range of named symbols. Never the whole repo; nothing provided twice per session."""
+    paths, idents = anchors(texts)
+    if not paths and not idents:
+        return ""
+    files = tracked(store.root)
+    if not files:
+        return ""
+    named = resolve_paths(files, paths)
+    index = index_symbols(store, files) if (named or idents) else {}
+    seen = {k for k, v in store.load("seen.json", {}).items() if v.get("session") == session}
+    blocks, outlines, used, full = [], [], [0], []
+
+    def add(block):
+        if used[0] + len(block) > budget:
+            return False
+        blocks.append(block)
+        used[0] += len(block)
+        return True
+
+    def provide(rel, whole_ok=True):
+        if rel in seen or rel in full:
+            return
+        p = store.root / rel
+        try:
+            text = redact(p.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            return
+        if whole_ok and len(text) <= SMALL_FILE:
+            if add(f"=== {rel} (current, whole file) ===\n{text.rstrip()}"):
+                full.append(rel)
+            return text
+        rec = index.get(rel)
+        if rec and rec["symbols"]:
+            outlines.append(f"{rel} ({rec['lines']} lines): " + ", ".join(f"{s}@{n}" for s, n in rec["symbols"][:30]))
+        elif not rec:
+            outlines.append(f"{rel} ({text.count(chr(10)) + 1} lines)")
+
+    for rel in named:
+        text = provide(rel)
+        if text and Path(rel).suffix in (".md", ".rst", ".txt"):  # a plan or doc the task names: files it names, one level
+            for r2 in resolve_paths(files, anchors([text])[0]):
+                if r2 not in named:
+                    provide(r2)
+    for name in idents:
+        leaf = name.split(".")[-1]
+        hits = [(rel, s, n) for rel, rec in index.items() for s, n in rec["symbols"] if s == name or s.split(".")[-1] == leaf][:2]
+        for rel, s, n in hits:
+            if rel in full or rel in seen:
+                continue
+            try:
+                lines = (store.root / rel).read_text(encoding="utf-8").splitlines()
+            except (OSError, UnicodeDecodeError):
+                continue
+            nxt = [m for t, m in index[rel]["symbols"] if m > n and "." not in t]
+            end = min(min(nxt) - 1 if nxt else len(lines), n + 59)
+            add(f"=== {rel}:{n}-{end} ({s}) ===\n" + redact("\n".join(lines[n - 1:end]).rstrip()))
+    if outlines:
+        add("Outlines (symbol@line; read the ranges you need):\n" + "\n".join(dict.fromkeys(outlines)))
+    if not blocks:
+        return ""
+    for rel in full:
+        mark_seen(store, rel, session, "provided")
+    return "ROSS: current contents of files this task names (no need to read these again unless you change them):\n" + "\n".join(blocks)
 
 
 # ------------------------------------------------------------------ artifact store (raw outputs stay local)
@@ -369,6 +526,37 @@ def _pick(lines, rx, limit):
     return [l for l in lines if rx.search(l)][:limit]
 
 
+def pytest_groups(lines):
+    """Failures grouped by root error: count, example tests, failing location and the code around it."""
+    sections, cur = [], None
+    for l in lines:
+        m = re.match(r"^_{3,} (.+?) _{3,}$", l)
+        if m:
+            cur = [m.group(1)]
+            sections.append(cur)
+        elif re.match(r"^=+ (short test summary|warnings summary|\d+ (passed|failed))", l):
+            cur = None
+        elif cur is not None:
+            cur.append(l)
+    groups = {}
+    for sec in sections:
+        errs = [l for l in sec if l.startswith("E ")]
+        sig = re.sub(r"\s+", " ", errs[0] if errs else "(no E line)")
+        sig = re.sub(r"'[^']*'|\"[^\"]*\"|\b\d+(\.\d+)?\b", "_", sig)[:160]
+        locs = [l for l in sec if re.match(r"^\S+\.py:\d+: ", l)]
+        g = groups.setdefault(sig, {"tests": [], "loc": locs[-1] if locs else "", "code": []})
+        g["tests"].append(sec[0])
+        if not g["code"]:
+            first_e = next((i for i, l in enumerate(sec) if l.startswith("E ")), len(sec))
+            g["code"] = [l[:160] for l in sec[max(1, first_e - 8):first_e] if l.strip()][-8:] + [e[:200] for e in errs[:2]]
+    out = []
+    for i, (sig, g) in enumerate(sorted(groups.items(), key=lambda kv: -len(kv[1]["tests"]))):
+        out.append(f"{len(g['tests'])} failing with: {sig}  e.g. {', '.join(g['tests'][:3])}")
+        if i < 3:
+            out += ([f"  at {g['loc']}"] if g["loc"] else []) + [f"  {l}" for l in g["code"]]
+    return out
+
+
 def compress(cmd, text, failed, aid_cmd):
     """Deterministic minimum actionable view of a large tool output, or None to pass through."""
     if len(text) <= PASS_THROUGH:
@@ -376,21 +564,67 @@ def compress(cmd, text, failed, aid_cmd):
     lines = text.splitlines()
     body = []
     if re.search(r"pytest|unittest|tox", cmd) or re.search(r"^=+ .*(passed|failed|error)", text, re.M):
-        body += _pick(lines, re.compile(r"^(FAILED|ERROR) |^E\s{2,}|^\S+\.py:\d+: |^(FAIL|ERROR): |^Ran \d+ tests|^(OK|FAILED \()"), 60)
-        body += [l for l in lines if re.search(r"^=+ .*(passed|failed|error|no tests).*=+$", l)][-1:]
+        body += [l for l in lines if re.search(r"^=+ .*(passed|failed|error|no tests).*=+$|^\d+ (passed|failed|errors?)\b.* in [\d.]+s|"
+                                               r"^Ran \d+ tests|^(OK|FAILED \()", l)][-2:]
+        body += pytest_groups(lines)
+        if len(body) < 3:
+            body += _pick(lines, re.compile(r"^(FAILED|ERROR) |^E\s{2,}|^\S+\.py:\d+: |^(FAIL|ERROR): "), 60)
     elif re.search(r"jest|vitest|npm (run )?test|pnpm|yarn test", cmd):
         body += _pick(lines, re.compile(r"\u2715|\u25cf|FAIL |Tests?:|Test Files|Error:|expected|received", re.I), 60)
     elif re.search(r"\btsc\b|typescript", cmd) or re.search(r"error TS\d+", text):
         body += _pick(lines, re.compile(r"error TS\d+|Found \d+ error"), 60)
-    elif re.search(r"^git (diff|show|log)", cmd):
+    elif re.search(r"^git (diff|show)", cmd) or (cmd.startswith("git log") and "\ndiff --git " in text):
         files = _pick(lines, re.compile(r"^diff --git "), 80)
         body += [f"{len(files)} files changed:"] + [f.split(" b/", 1)[-1] for f in files]
         body += [l for l in lines if l.startswith(("@@", "+", "-")) and not l.startswith(("+++", "---"))][:80]
-    else:
+    elif re.search(r"\beslint\b", cmd) or re.search(r"✖ \d+ problems?", text):
+        for l in lines:
+            if re.match(r"^\S.*\.(js|jsx|ts|tsx|mjs|cjs|vue)$", l) or re.match(r"^\s+\d+:\d+\s+(error|warning)", l) or "problem" in l:
+                body.append(l)
+        body = body[:80]
+    elif re.search(r"\b(npm|pnpm|yarn|pip3?) (install|i|add|ci)\b", cmd):
+        body += _pick(lines, re.compile(r"ERR!|\berror\b|\bwarn(ing)?\b|deprecated|vulnerabilit|added \d+|Successfully installed|"
+                                        r"packages? (are|is) looking|Done in|Progress: resolved", re.I), 40)
+    elif re.search(r"^git log\b", cmd) and lines and lines[0].startswith("commit "):
+        commits, cur = [], None
+        for l in lines:
+            if l.startswith("commit "):
+                cur = l[7:19]
+            elif cur and l.startswith("    ") and l.strip():
+                commits.append(f"{cur} {l.strip()}")
+                cur = None
+        body = [f"{len(commits)} commits (subjects only):"] + commits[:60]
+    elif re.search(r"^(grep|rg|git grep)\b", cmd) and sum(1 for l in lines if re.match(r"^[^:\s]+:\d*:?", l)) > len(lines) * 0.6:
+        per = {}
+        for l in lines:
+            per.setdefault(l.split(":", 1)[0], []).append(l)
+        body = [f"{len(lines)} matches in {len(per)} files: " + ", ".join(f"{f} ({len(v)})" for f, v in list(per.items())[:30])]
+        for f, v in per.items():
+            body += v[:4]
+            if len(body) > 70:
+                break
+    elif re.search(r"^(find|ls|git ls-files|tree)\b", cmd) and sum(1 for l in lines if " " not in l.strip()) > len(lines) * 0.8:
+        dirs = {}
+        for l in lines:
+            parts = l.strip().lstrip("./").split("/")
+            dirs[parts[0] if len(parts) > 1 else "."] = dirs.get(parts[0] if len(parts) > 1 else ".", 0) + 1
+        body = [f"{len(lines)} entries; by top-level directory: " + ", ".join(f"{d} ({n})" for d, n in sorted(dirs.items(), key=lambda x: -x[1])[:25])]
+        body += lines[:40]
+    elif text.lstrip()[:1] in "[{":
+        try:
+            data = json.loads(text)
+        except ValueError:
+            data = None
+        if data is not None:
+            first = data[0] if isinstance(data, list) and data else data
+            keys = list(first.keys())[:30] if isinstance(first, dict) else []
+            body = [f"JSON {type(data).__name__} with {len(data)} items" + (f"; keys: {', '.join(map(str, keys))}" if keys else "")]
+            body += json.dumps(data, indent=1)[:1500].splitlines()
+    if not body:
         body += _pick(lines, re.compile(r"\b(error|Error|ERROR|warning|Warning|FAIL|failed|Traceback|exception|Exception)\b"), 40)
         tb = [i for i, l in enumerate(lines) if l.startswith("Traceback")]
-        if tb:
-            body += lines[tb[-1]:tb[-1] + 1] + lines[-8:]
+        if tb:  # root error and the frames nearest to it
+            body += lines[tb[-1]:tb[-1] + 1] + [l for l in lines[tb[-1]:] if l.strip().startswith("File ")][-4:] + lines[-6:]
     if not body:
         body = lines[:15] + ["..."] + lines[-25:]
     seen, kept = set(), []
@@ -526,6 +760,7 @@ def error_sig(payload):
 HEAVY_RE = re.compile(r"(^|[\s;&|(])(pytest|py\.test|python3? -m (pytest|unittest)|npm|pnpm|yarn|npx|jest|vitest|tsc|eslint|ruff|"
                       r"flake8|mypy|pylint|go (test|build|vet)|cargo (test|build|clippy)|mvn|gradle|\./gradlew|make|dotnet|"
                       r"pip3? install|git (diff|log|show)|grep -[a-zA-Z]*r|rg |find |tox)\b")
+READ_SEG_RE = re.compile(r"(^|&&|;|\|\||\n)\s*(cat|nl|sed|head|tail|less|more|awk|bat|echo|printf|python3? -c)\b")
 UNSAFE_WRAP_RE = re.compile(r"(^|[;&|]\s*)(cd|export|source|\.|alias|unset|set|pushd|popd)\s|<<|&\s*$|\bsudo\b")
 WRAP_RE = re.compile(r'ross\.py"? exec (.+)$')
 
@@ -561,6 +796,66 @@ def run_exec(store, cmd):
     return p.returncode
 
 
+FULL_MARK = "ross:full"
+CAT_RE = re.compile(r"^(cat|nl)(\s+-n)?(\s+[\w./@+-]+)+$")  # plain whole-file reads only: no pipes, globs, redirects
+LARGE_SHELL_READ = 24000
+
+
+def run_view(store, cmd, session):
+    """Serve a plain `cat`/`nl` of project files: unchanged-since-seen files are not repeated, changed ones come as a
+    diff, very large ones as an outline plus the first lines. Exit code and error text are the real command's."""
+    import difflib
+    import shlex
+    argv = shlex.split(cmd)
+    files = [a for a in argv[1:] if not a.startswith("-")]
+    if not files or any(not os.path.isfile(f) for f in files):
+        return subprocess.run(cmd, shell=True).returncode
+    seen = store.load("seen.json", {})
+    out, saved = [], 0
+    for f in files:
+        p = Path(f).resolve()
+        try:
+            rel = str(p.relative_to(store.root))
+            text = p.read_text(encoding="utf-8")
+        except (ValueError, OSError, UnicodeDecodeError):
+            rel, text = None, None
+        if rel is None:
+            r = subprocess.run([argv[0]] + [a for a in argv[1:] if a.startswith("-")] + [f], capture_output=True, text=True, errors="replace")
+            out.append(r.stdout)
+            continue
+        h, rec = file_hash(p), seen.get(rel)
+        shown = None
+        if rec and rec.get("session") == session and rec.get("hash") == h:
+            shown = f"[ROSS: {rel} is unchanged since it was {rec.get('how', 'read')} earlier in this session; not repeated. Add '# {FULL_MARK}' to print it.]\n"
+        elif rec and rec.get("session") == session and rec.get("blob"):
+            old = git(store.root, "cat-file", "-p", rec["blob"])
+            if old:
+                diff = "".join(difflib.unified_diff(old.splitlines(True), text.splitlines(True), f"{rel} (seen earlier)", f"{rel} (now)", n=3))
+                if diff and len(diff) < 0.6 * len(text):
+                    shown = f"[ROSS: {rel} changed since you saw it; only the changes are shown.]\n{diff}"
+        if shown is None and len(text) > LARGE_SHELL_READ:
+            syms = symbols(p)
+            head = "\n".join(text.splitlines()[:80])
+            shown = (f"[ROSS: {rel} is {len(text):,} chars / {text.count(chr(10)) + 1} lines. Outline and first 80 lines; read a range with "
+                     f"sed -n 'A,Bp' {f}, or add '# {FULL_MARK}' to print it all.]\nOutline: "
+                     + ", ".join(f"{s}@{n}" for s, n in syms[:60]) + f"\n{head}\n")
+        if shown is None:
+            if argv[0] == "nl" or "-n" in argv[1:]:
+                shown = subprocess.run([argv[0]] + [a for a in argv[1:] if a.startswith("-")] + [f], capture_output=True, text=True, errors="replace").stdout
+            else:
+                shown = text
+            seen[rel] = {"hash": h, "blob": git_blob(store.root, p), "session": session, "how": "read"}
+        else:
+            saved += max(0, len(text) - len(shown))
+        out.append(shown)
+    store.save("seen.json", seen)
+    if saved:
+        metric(store, "read_bytes_displaced", saved, session=session)
+        metric(store, "shell_reads_reduced", 1, session=session)
+    sys.stdout.write("".join(out))
+    return 0
+
+
 def git_blob(root, path):
     return git(root, "hash-object", "--", str(path))
 
@@ -578,6 +873,11 @@ def handle_read(store, event, payload, session):
     reads[key] = {"hash": file_hash(fp), "blob": blob, "session": session, "ts": int(time.time())}
     store.save("reads.json", reads)
     full = not ti.get("offset") and not ti.get("limit")
+    if full:
+        try:
+            mark_seen(store, str(Path(fp).resolve().relative_to(store.root)), session, "read")
+        except ValueError:
+            pass
     if full and prev and prev.get("session") == session and prev.get("blob") and prev["blob"] != blob:
         old = git(store.root, "cat-file", "-p", prev["blob"])  # git is the source of truth; no copy stored
         if old:
@@ -601,6 +901,107 @@ def handle_read(store, event, payload, session):
         replace_output(event, view)
 
 
+NUDGE = "ROSS: Enough state is available to batch the next safe inspection/execution step."
+WRITE_RE = re.compile(r"<<|(^|[^2&])>\s*[\w./]|\bsed -i|\btee\b|\.write(_text)?\(|open\([^)]*['\"][wa]|\bpatch\b|\bgit (apply|commit|mv|rm)\b|\b(mv|cp|rm|mkdir|touch)\s")
+NEXT_RE = re.compile(r"(?im)^\W*(?:next(?: steps?)?|remaining|still to do|todo|follow[- ]up)\W*[:\-]\s*(.+)$")
+DEFER_RE = re.compile(r"(?i)\b(next session|haven'?t (started|done)|have not (started|done)|not (started|done) yet|left (it |this )?for|deferred|"
+                      r"still (needs?|to do)|remaining work|out of scope for now)\b")
+BLOCK_RE = re.compile(r"(?im)^\W*(?:blocker|blocked(?: on| by)?)\W*[:\-]\s*(.+)$|([^.\n]*\b(?:blocked (?:on|by)|cannot proceed|can'?t proceed)\b[^.\n]*)")
+
+
+def next_and_blocker(msg):
+    """Explicit next step and blocker from the agent's own final message; no model call, no inference beyond the text."""
+    m = NEXT_RE.search(msg)
+    nxt = m.group(1).strip() if m else None
+    if not nxt:
+        for sent in re.split(r"(?<=[.!?])\s+|\n+", msg):
+            if DEFER_RE.search(sent):
+                nxt = sent.strip(" -*")
+                break
+    b = BLOCK_RE.search(msg)
+    return nxt, (b.group(1) or b.group(2)).strip(" -*") if b else None
+
+
+def _turns(path, tail=None):
+    """Assistant turns from a host transcript: [(message id, kinds)], kinds in inspect/implement/verify/recovery."""
+    try:
+        with open(path, "rb") as f:
+            if tail:
+                f.seek(max(0, os.path.getsize(path) - tail))
+            raw = f.read().decode("utf-8", "replace").splitlines()
+    except OSError:
+        return []
+    turns, errored = [], False
+    for line in raw:
+        try:
+            j = json.loads(line)
+        except ValueError:
+            continue
+        msg = j.get("message") or {}
+        content = msg.get("content") if isinstance(msg.get("content"), list) else []
+        if j.get("type") == "assistant":
+            if not turns or turns[-1][0] != msg.get("id"):
+                turns.append([msg.get("id"), set(), errored])
+                errored = False
+            for c in content:
+                if c.get("type") != "tool_use":
+                    continue
+                name, cmd = c.get("name", ""), str((c.get("input") or {}).get("command") or "")
+                acted = False
+                if name in ("Edit", "Write", "MultiEdit", "NotebookEdit") or (cmd and WRITE_RE.search(cmd)):
+                    turns[-1][1].add("implement")
+                    acted = True
+                if cmd and TEST_RE.search(cmd):
+                    turns[-1][1].add("verify")
+                    acted = True
+                if not acted:
+                    turns[-1][1].add("inspect")
+        elif j.get("type") == "user":
+            for c in content:
+                if c.get("type") == "tool_result" and (c.get("is_error") or re.search(r"\b\d+ failed\b|Traceback|Exit code [1-9]", json.dumps(c.get("content"))[:20000])):
+                    errored = True
+    return turns
+
+
+def turn_stats(path):
+    turns = _turns(path)
+    if not turns:
+        return None
+    s = {"turns": len(turns), "inspection_only": 0, "implementation": 0, "verification": 0, "recovery": 0,
+         "to_first_action": None, "to_implementation": None, "to_verified": None}
+    for i, (_, kinds, after_error) in enumerate(turns, 1):
+        if kinds == {"inspect"}:
+            s["inspection_only"] += 1
+        if "implement" in kinds:
+            s["implementation"] += 1
+            s["to_implementation"] = s["to_implementation"] or i
+        if "verify" in kinds:
+            s["verification"] += 1
+            s["to_verified"] = i
+        if kinds and kinds != {"inspect"}:
+            s["to_first_action"] = s["to_first_action"] or i
+        if after_error and kinds:
+            s["recovery"] += 1
+    return s
+
+
+def nudge_due(store, payload, session):
+    """Two consecutive inspection-only turns: say once per session that state suffices to batch the next step."""
+    tp = payload.get("transcript_path")
+    if not tp or not session or not store.dir.exists():
+        return False
+    turns = [t for t in _turns(tp, tail=262144) if t[1]]
+    if len(turns) < 2 or turns[-1][1] != {"inspect"} or turns[-2][1] != {"inspect"}:
+        return False
+    flags = store.load("nudges.json", {})
+    if session in flags:
+        return False
+    flags = {k: v for k, v in flags.items() if v > time.time() - 7 * 86400}
+    flags[session] = int(time.time())
+    store.save("nudges.json", flags)
+    return True
+
+
 def hook(event, payload):
     store = Store(payload.get("cwd"))
     session = payload.get("session_id")
@@ -612,27 +1013,36 @@ def hook(event, payload):
         prompt = (payload.get("prompt") or "").strip()
         resume = bool(RESUME_RE.match(prompt)) and len(prompt) < 80
         coding = bool(CODING_RE.search(prompt)) and len(prompt) >= 40
-        if not (resume or coding):
-            return
+        if not (resume or coding) or not store.root.joinpath(".git").exists() and not store.dir.exists():
+            return  # level 0: no state read or written, nothing injected
         st = state(store)
         first = st.get("session") != session
-        has_prev = bool(st.get("last_result") or st.get("changed") or st.get("goal"))
         new = dict(st)
         if coding and not resume:
             new["goal"] = redact(prompt[:400])
+            if first:
+                new.pop("next", None)  # a new instruction supersedes the old next step
         if first:
             new["session"] = session
             new["session_sha"] = git(store.root, "rev-parse", "HEAD")
+        parts = []
+        if resume and first:
+            lvl1 = context(store)  # level 1, from the state the last session left
+            if lvl1:
+                parts.append(lvl1)
+                metric(store, "resume_injected", 1, session=session)
         if new != st:
             new["updated"] = int(time.time())
             store.save("state.json", new)
-        if first:
-            ctx = context(store, budget=300, with_map=True, resume=has_prev)
-            if ctx:
-                if has_prev:
-                    metric(store, "resume_injected", 1, session=session)
-                metric(store, "injected_bytes", len(ctx), session=session)
-                out({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx}})
+        texts = [prompt] + ([st.get("goal"), st.get("next"), "; ".join(st.get("blocker") or [])] if resume else [])
+        lvl2 = hydrate(store, texts, session)  # level 2, only what the task names
+        if lvl2:
+            parts.append(lvl2)
+            metric(store, "hydrated_files", lvl2.count("\n=== ") + lvl2.startswith("=== "), session=session)
+        if parts:
+            ctx = "\n\n".join(parts)
+            metric(store, "injected_bytes", len(ctx), session=session)
+            out({"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "additionalContext": ctx}})
         return
     if event == "PreToolUse":
         if tool == "Read":
@@ -652,27 +1062,37 @@ def hook(event, payload):
         if not cmd or os.environ.get("ROSS_FORCE"):
             return
         ti = payload.get("tool_input") or {}
+        raw = norm_cmd(ti.get("command") or "")
+        if tool == "Bash" and CAT_RE.match(cmd) and FULL_MARK not in raw and not WRAP_RE.search(raw) and store.root.joinpath(".git").exists():
+            import shlex
+            out({"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": dict(
+                ti, command=f'ROSS_SESSION={shlex.quote(session or "")} python3 "{rt}" view {shlex.quote(ti.get("command") or cmd)}')}})
+            return
         wrap = (tool == "Bash" and HEAVY_RE.search(cmd) and not UNSAFE_WRAP_RE.search(cmd) and not ti.get("run_in_background")
-                and not WRAP_RE.search(norm_cmd(ti.get("command") or "")))
+                and not WRAP_RE.search(raw) and FULL_MARK not in raw and not READ_SEG_RE.search(ti.get("command") or ""))
         fails = store.load("failures.json", {})
         cmds = store.load("commands.json", {})
         is_test = bool(TEST_RE.search(cmd))
-        guarded = RERUN_MARK not in cmd and (cmd in fails or (is_test and cmd in cmds))
+        tkey = test_key(cmd) if is_test else cmd
+        guarded = RERUN_MARK not in cmd and ((tkey in fails and (not is_test or pure_test(cmd))) or (is_test and tkey in cmds and pure_test(cmd)))
         if not guarded:
             if wrap:
                 import shlex
+                run = ti.get("command") or cmd
+                if is_test and pure_test(run) and "|" in run:
+                    run = tkey  # ROSS gives the root errors and the summary instead of an arbitrary head/tail slice
                 out({"hookSpecificOutput": {"hookEventName": "PreToolUse",
-                                            "updatedInput": dict(ti, command=f'python3 "{rt}" exec {shlex.quote(ti.get("command") or cmd)}')}})
+                                            "updatedInput": dict(ti, command=f'python3 "{rt}" exec {shlex.quote(run)}')}})
             return
         h = inputs_hash(store.root)
-        f = fails.get(cmd)
+        f = fails.get(tkey)
         if h and f and f.get("inputs") == h and f.get("count", 0) >= 2:
             metric(store, "retry_prevented", 1, session=session, detail=cmd[:120])
             deny("PreToolUse", f"ROSS: `{cmd[:120]}` already failed {f['count']} times with identical inputs and the same error "
                                f"({f.get('sig', '')[:160]}). Change the diagnosis or the inputs first. Append '# {RERUN_MARK}' only "
                                f"if the user asked for another attempt or something outside the project files changed.")
             return
-        c = cmds.get(cmd)
+        c = cmds.get(tkey)
         if is_test and h and c and c.get("result") == "pass" and c.get("inputs") == h:
             metric(store, "test_reused", 1, session=session, detail=cmd[:120])
             deny("PreToolUse", f"ROSS: `{cmd[:120]}` already PASSED against identical inputs; treat it as passing. Append "
@@ -705,6 +1125,8 @@ def hook(event, payload):
         cmd_key = cmd.replace(f"# {RERUN_MARK}", "").strip()
         failed = tool_failed(payload)
         is_test = bool(TEST_RE.search(cmd_key))
+        if is_test:
+            cmd_key = test_key(cmd_key)
         fails = store.load("failures.json", {})
         if failed or is_test or cmd_key in fails:
             h = inputs_hash(store.root)
@@ -722,14 +1144,22 @@ def hook(event, payload):
                 summary = next((l for l in text.splitlines()[::-1] if re.search(r"passed|failed|error|Ran \d+|Tests?:", l)), "")
                 cmds[cmd_key] = {"result": "fail" if failed else "pass", "inputs": h, "ts": int(time.time()), "summary": redact(summary)[:200]}
                 store.save("commands.json", cmds)
-        if len(text) > PASS_THROUGH and not WRAP_RE.search(norm_cmd((payload.get("tool_input") or {}).get("command") or "")):
+        res = {}
+        raw_cmd = str((payload.get("tool_input") or {}).get("command") or "")
+        if (len(text) > PASS_THROUGH and HEAVY_RE.search(cmd) and not WRAP_RE.search(norm_cmd(raw_cmd))
+                and not READ_SEG_RE.search(raw_cmd)):  # never compress output the agent asked to read
             aid = store_artifact(store, text)
             view = compress(cmd_key, text, failed, f'python3 "{rt}" artifact {aid} [--grep PATTERN | --lines A-B]')
             if view:
                 metric(store, "outputs_compressed", 1, session=session, detail=cmd_key[:120])
                 metric(store, "raw_output_bytes", len(text), session=session)
                 metric(store, "presented_output_bytes", len(view), session=session)
-                replace_output(event, view)
+                res["updatedToolOutput"] = view
+        if nudge_due(store, payload, session):
+            metric(store, "batch_nudge", 1, session=session)
+            res["additionalContext"] = NUDGE
+        if res:
+            out({"hookSpecificOutput": dict(res, hookEventName=event)})
         return
     if event in ("Stop", "SessionEnd"):
         if not store.dir.exists():
@@ -746,9 +1176,22 @@ def hook(event, payload):
         msg = (payload.get("last_assistant_message") or "").strip()
         if msg:
             new["last_result"] = redact(msg)[-500:]
-            m = re.search(r"(?im)^\W*(?:next(?: steps?)?|remaining|still to do|todo)\W*[:\-]\s*(.+)$", msg)
-            if m:
-                new["next"] = redact(m.group(1))[:200]
+            nxt, blocker = next_and_blocker(msg)
+            if nxt:
+                new["next"] = redact(nxt)[:240]
+            if blocker:
+                new["blocker"] = [redact(blocker)[:240]]
+            elif new.get("blocker") and not nxt:
+                new.pop("blocker")
+        g = git_state(store.root)
+        if g:
+            new["end_sha"], new["branch"] = g["sha"], g["branch"]
+        if tp and session:
+            t = turn_stats(tp)
+            if t:
+                sess = store.load("sessions.json", {})
+                sess.setdefault(session, {})["turn_stats"] = t
+                store.save("sessions.json", sess)
         base = st.get("session_sha")
         changed = set(git(store.root, "diff", "--name-only", base).splitlines()) if base else set()
         changed |= set(git_state(store.root).get("dirty", []))
@@ -825,8 +1268,10 @@ def main(argv):
         print(context(store, budget=2000) or "No ROSS state for this project yet.")
         print(savings(store).split("\n", 1)[-1])
     elif cmd == "context":
-        budget = int(args[args.index("--budget") + 1]) if "--budget" in args else 600
-        print(context(store, budget) or "")
+        budget = int(args[args.index("--budget") + 1]) if "--budget" in args else 400
+        print(context(store, budget, deep="--deep" in args) or "")
+    elif cmd == "map":
+        print(repo_map(store, budget_chars=int(args[0]) if args else 6000) or "")
     elif cmd == "note":
         remove = "--remove" in args
         rest = [a for a in args if a != "--remove"]
@@ -842,6 +1287,10 @@ def main(argv):
         if not args:
             raise SystemExit("usage: exec COMMAND")
         return run_exec(store, " ".join(args))
+    elif cmd == "view":
+        if not args:
+            raise SystemExit("usage: view 'cat FILE ...'")
+        return run_view(store, " ".join(args), os.environ.get("ROSS_SESSION") or "")
     elif cmd == "artifact":
         if not args:
             raise SystemExit("usage: artifact ID [--grep PATTERN | --lines A-B]")
