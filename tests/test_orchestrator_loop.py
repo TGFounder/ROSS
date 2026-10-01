@@ -158,5 +158,25 @@ class Loop(unittest.TestCase):
         self.assertTrue(r.cost_class.startswith("ESTIMATED"))
 
 
+class History(unittest.TestCase):
+    def test_processed_tool_material_replaced_only_when_it_pays_and_stays_recoverable(self):
+        from ross.core.context import reduce_history
+        from ross.orchestration.artifacts import Artifacts
+        with tempfile.TemporaryDirectory() as d:
+            a = Artifacts(d)
+            big = "log line\n" * 8000
+            msgs = [{"role": "user", "content": [{"type": "text", "text": "task"}]}]
+            for i in range(6):
+                msgs.append({"role": "assistant", "content": [{"type": "tool_use", "id": f"t{i}", "name": "run", "input": {}}]})
+                msgs.append({"role": "user", "content": [{"type": "tool_result", "tool_use_id": f"t{i}", "content": big if i == 0 else "ok"}]})
+            self.assertEqual(reduce_history(msgs, a, est_tokens=10000, read_rate=0.2, write_rate=2.5), 0)  # small context: keep
+            cut = reduce_history(msgs, a, est_tokens=60000, read_rate=0.2, write_rate=2.5, expected_future_calls=10)
+            self.assertEqual(cut, len(big))
+            stub = msgs[2]["content"][0]["content"]
+            aid = stub.split("artifact ")[1].rstrip("]")
+            self.assertEqual(a.get(aid, max_chars=10**6), big.rstrip("\n"))  # full evidence recoverable
+            self.assertEqual(msgs[-1]["content"][0]["content"], "ok")  # recent results untouched
+
+
 if __name__ == "__main__":
     unittest.main()

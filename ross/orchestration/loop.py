@@ -82,8 +82,18 @@ class Session:
         return blocks
 
     def _request(self, messages, max_output):
-        return ModelRequest(system=system_prompt(self.profile), tools=SCHEMAS, messages=messages, max_output=max_output,
-                            cache=ctxpol.cache_plan(self.caps, self.profile.on("cache_policy")))
+        req = ModelRequest(system=system_prompt(self.profile), tools=SCHEMAS, messages=messages, max_output=max_output,
+                           cache=ctxpol.cache_plan(self.caps, self.profile.on("cache_policy")))
+        if self.profile.on("context_selection") and self.governor.rates:
+            r = self.governor.rates
+            cut = ctxpol.reduce_history(messages, self.artifacts, len(json.dumps(messages)) // 3,
+                                        r["cache_read"], r["cache_write_5m"])
+            if cut:
+                self.telemetry("history_chars_replaced", cut, "COUNTED")
+        if self.profile.on("native_context_management") and self.caps.context_editing:
+            req.context_edits = [{"type": "clear_tool_uses_20250919", "trigger": {"type": "input_tokens", "value": 60000},
+                                  "keep": {"type": "tool_uses", "value": 3}, "clear_at_least": {"type": "input_tokens", "value": 10000}}]
+        return req
 
     # ------------------------------------------------------------ loop
     def run(self):

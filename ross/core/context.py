@@ -65,3 +65,31 @@ def should_compact(context_tokens, cached_prefix_tokens, expected_future_calls, 
     saving = removable * read_rate * expected_future_calls
     cost = (context_tokens - removable) * write_rate + compaction_cost_tokens * write_rate
     return saving > cost
+
+
+def reduce_history(messages, artifacts, est_tokens, read_rate, write_rate, threshold_tokens=40000, keep_recent=3, min_chars=2000,
+                   expected_future_calls=3):
+    """Replace already-processed large tool results with a pointer to the full text kept locally. Only when the context is
+    large and the saving on future cached re-reads beats rewriting the cache after the edit point. Returns chars removed."""
+    if est_tokens < threshold_tokens:
+        return 0
+    idx = [i for i, m in enumerate(messages) if m["role"] == "user" and isinstance(m["content"], list)
+           and any(b.get("type") == "tool_result" for b in m["content"])]
+    old = idx[:-keep_recent] if len(idx) > keep_recent else []
+    candidates = [(i, b) for i in old for b in messages[i]["content"]
+                  if b.get("type") == "tool_result" and isinstance(b.get("content"), str) and len(b["content"]) > min_chars
+                  and not b["content"].startswith("[ROSS: earlier")]
+    if not candidates:
+        return 0
+    removed = sum(len(b["content"]) for _, b in candidates) // 3
+    first = candidates[0][0]
+    after = sum(len(str(m["content"])) for m in messages[first:]) // 3
+    # Editing history invalidates the cache from the edit point: the rest must be written again instead of read.
+    if removed * read_rate * expected_future_calls <= (after - removed) * (write_rate - read_rate):
+        return 0
+    cut = 0
+    for _, b in candidates:
+        aid = artifacts.put(b["content"])
+        cut += len(b["content"])
+        b["content"] = f"[ROSS: earlier tool output ({len(b['content']):,} chars) already processed; full text in artifact {aid}]"
+    return cut
