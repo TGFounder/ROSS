@@ -34,12 +34,11 @@ Work carefully: understand the relevant code, fix root causes with changes that 
 
 ROSS_KERNEL = """
 
-ROSS method (each model step re-sends the whole conversation, so steps are the main cost):
-- In one step, request every independent read, search and check you will need, as several tool calls. Once you know enough, make all the edits and the verifying run in the same step.
-- Read only what can change the next decision; prefer grep and line ranges for large files. Do not reread unchanged files or rerun tests on unchanged code.
-- When the remaining work is a final verifying command, call run with final=true and put your final answer in the same message; ROSS ends the session if it exits 0 and shows you the failure otherwise.
-- ROSS context in the first message (repository facts, earlier-session state) is current unless marked stale. "Continue" means carry on with the unfinished or deferred work it describes.
-- Final answer: at most 6 short lines: what changed, how it was verified, anything the user must decide."""
+ROSS: every step resends the whole conversation, so steps are the main cost.
+- Batch all independent reads, searches and checks into one step; once you know enough, make every edit and the verifying run in one step.
+- Read only what changes your next decision (grep, line ranges). Never reread unchanged files or rerun tests on unchanged code.
+- Finish with run(final=true) and your answer in the same message; ROSS ends the session if it exits 0.
+- Final answer: at most 6 short lines."""
 
 
 def system_prompt(profile):

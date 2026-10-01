@@ -64,7 +64,8 @@ class Memory:
             by.setdefault(i.type, []).append(i)
         if not current and not stale:
             return ""
-        lines = ["ROSS state (derived from earlier sessions; re-verify only what you change):"]
+        lines = ["ROSS state from earlier sessions (current unless marked stale; \"Continue\" means do the unfinished work it describes; "
+                 "re-verify only what you change):"]
         for t, label in LABELS:
             for i in by.get(t, [])[: 1 if t in SINGLE_TYPES else 4]:
                 tag = " (model summary)" if i.provenance is Provenance.MODEL_SUMMARY else ""
