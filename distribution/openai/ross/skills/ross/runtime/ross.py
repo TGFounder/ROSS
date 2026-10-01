@@ -347,10 +347,14 @@ def hook(event, payload):
     tool = payload.get("tool_name") or ""
     if event == "SessionStart":
         ctx = context(store)
+        rt = Path(__file__).resolve()
+        digest = (f"ROSS runtime active. Hooks refuse unchanged rereads, reruns of passing tests on identical inputs, and a "
+                  f"third identical failing command. Record durable goals, decisions, constraints, blockers and the next "
+                  f"action only when they change: python3 \"{rt}\" note <goal|next|decision|constraint|blocker|done> \"<text>\".")
         if ctx:
             metric(store, "context_hydrated", 1, session=session)
             metric(store, "hydrated_tokens", len(ctx) // 4, estimated=True, session=session)
-            out({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ctx}})
+        out({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": digest + ("\n" + ctx if ctx else "")}})
         return
     if event == "PreToolUse":
         if tool == "Read":

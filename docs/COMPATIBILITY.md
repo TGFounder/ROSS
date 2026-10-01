@@ -21,3 +21,17 @@ Status meanings:
 | Automatic remote update | UNSUPPORTED | ROSS never fetches or trusts arbitrary `main`; users select an accepted release explicitly. |
 
 Candidate results must not be represented as accepted runtime compatibility.
+
+## v1.1.0 candidate efficiency runtime
+
+| Host | Skill | Runtime hooks | Cross-session state | Status |
+|---|---|---|---|---|
+| Claude Code | yes | SessionStart, PreToolUse, PostToolUse(+Failure), Stop, SessionEnd | yes, `<project>/.ross/` | VERIFIED (live sessions) |
+| Codex CLI / IDE / app | yes | same handler and JSON protocol; file-read reuse not applicable (no Read tool) | yes | EXPECTED FROM SPEC (static package tests; no live OpenAI run) |
+| Claude apps, ChatGPT chat | skill rules only | no | no | Degrades to kernel rules |
+| OpenAI API (direct) | n/a | n/a | via CLI commands | Not built; no live economics test |
+
+Hooks invoke `python3`; Windows users need `python3` on PATH (or the `py`
+launcher alias). The runtime itself is portable and tested on all three OSes
+in CI. A pure skill cannot guarantee persistent memory on hosted chat
+surfaces.

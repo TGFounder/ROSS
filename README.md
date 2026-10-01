@@ -13,6 +13,19 @@ always-loaded kernel plus references and optional utilities. It is not an agent
 framework, permission system, sandbox, deployment service, or substitute for
 specialist expertise and enforceable platform controls.
 
+> **ROSS exists to maximize useful human accomplishment per unit of AI compute.**
+
+## v1.1.0 candidate: efficiency runtime
+
+This branch adds a local, standard-library runtime that helps the AI access you
+already pay for go further: compact project state carried between sessions,
+refusal of unchanged rereads and retests, and a guard against repeated
+identical failures. Nothing leaves your machine. Savings are an engineering
+target, not a claim, until supported by broad real-world evidence; run
+`python3 runtime/ross.py savings` to see measured and estimated figures for your
+own work. See [`references/efficiency-runtime.md`](references/efficiency-runtime.md)
+and [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md).
+
 ## 60-second quick start
 
 1. Download and verify an accepted ROSS release from this repository.

@@ -130,7 +130,8 @@ class HookTests(Base):
 
     def test_session_start_hydrates_only_when_state_exists(self):
         p = {"cwd": str(self.root), "session_id": "s9", "hook_event_name": "SessionStart"}
-        self.assertEqual(run_hook("SessionStart", p), {})
+        empty = run_hook("SessionStart", p)["hookSpecificOutput"]["additionalContext"]
+        self.assertLess(len(empty) / 4, 120)  # only the short rules digest when no state exists
         ross.note(self.store, "goal", "finish refactor")
         ctx = run_hook("SessionStart", p)["hookSpecificOutput"]["additionalContext"]
         self.assertIn("finish refactor", ctx)
