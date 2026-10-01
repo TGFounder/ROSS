@@ -10,8 +10,12 @@ import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "runtime"))
-import ross  # noqa: E402
+import importlib.util  # noqa: E402
+
+# Load the plugin runtime under its own module name so it never collides with the `ross` core package.
+_spec = importlib.util.spec_from_file_location("ross_runtime", Path(__file__).resolve().parents[1] / "runtime" / "ross.py")
+ross = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(ross)
 
 RUNTIME = Path(ross.__file__)
 
