@@ -12,6 +12,17 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/ross/runtime/ross.py\" hook UserPromptSubmit",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "hooks": [
@@ -21,7 +32,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Read|Bash"
+        "matcher": "Read|Bash|Grep|Glob"
       }
     ],
     "PostToolUse": [
@@ -33,7 +44,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Read|Bash"
+        "matcher": "Read|Bash|Grep|Glob"
       }
     ],
     "Stop": [
@@ -67,7 +78,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Read|Bash"
+        "matcher": "Read|Bash|Grep|Glob"
       }
     ]
   }

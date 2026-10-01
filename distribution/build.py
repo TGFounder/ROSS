@@ -25,7 +25,7 @@ LOCK = Path(__file__).resolve().parent / "runtime.lock"
 RUNTIME_FILES = ["SKILL.md", "LICENSE", "runtime/ross.py"] + sorted(
     p.relative_to(ROOT).as_posix() for d in ("references", "profiles") for p in (ROOT / d).glob("*") if p.is_file())
 HOSTS = {
-    "claude": {"pkg": ROOT / "distribution" / "claude" / "ross", "matcher": "Read|Bash"},
+    "claude": {"pkg": ROOT / "distribution" / "claude" / "ross", "matcher": "Read|Bash|Grep|Glob"},
     "openai": {"pkg": ROOT / "distribution" / "openai" / "ross", "matcher": None},
 }
 SKIP_DIRS = {"__pycache__"}
@@ -51,6 +51,7 @@ def hooks_json(matcher):
 
     hooks = {
         "SessionStart": entry("SessionStart", False),
+        "UserPromptSubmit": entry("UserPromptSubmit", False),
         "PreToolUse": entry("PreToolUse", True),
         "PostToolUse": entry("PostToolUse", True),
         "Stop": entry("Stop", False),

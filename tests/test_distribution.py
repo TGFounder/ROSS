@@ -6,7 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "distribution"
-HOOK_EVENTS = {"SessionStart", "SessionEnd", "PreToolUse", "PostToolUse", "PostToolUseFailure", "Stop"}
+HOOK_EVENTS = {"SessionStart", "SessionEnd", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PostToolUseFailure", "Stop"}
 
 
 def frontmatter(path):

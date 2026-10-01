@@ -74,3 +74,5 @@ version-control state.
 Before handoff, inspect the final diff and delete unnecessary code, files,
 dependencies, prose, scaffolds, debug output, and stale comments without
 weakening safety or proof. Stop once the requested outcome and evidence exist.
+
+Runtime state, artifacts and savings commands: [`efficiency-runtime.md`](efficiency-runtime.md).

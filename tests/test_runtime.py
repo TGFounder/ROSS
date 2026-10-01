@@ -1,6 +1,7 @@
 """Deterministic tests for the ROSS Efficiency Runtime (stdlib unittest)."""
 import io
 import json
+import re
 import os
 import subprocess
 import sys
@@ -128,13 +129,73 @@ class HookTests(Base):
         (self.root / "a.py").write_text("changed\n")  # new information: allowed again
         self.assertIsNone(decision(self.bash("PreToolUse", cmd)))
 
-    def test_session_start_hydrates_only_when_state_exists(self):
-        p = {"cwd": str(self.root), "session_id": "s9", "hook_event_name": "SessionStart"}
-        empty = run_hook("SessionStart", p)["hookSpecificOutput"]["additionalContext"]
-        self.assertLess(len(empty) / 4, 120)  # only the short rules digest when no state exists
-        ross.note(self.store, "goal", "finish refactor")
-        ctx = run_hook("SessionStart", p)["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("finish refactor", ctx)
+    def prompt(self, text, session="s1"):
+        return run_hook("UserPromptSubmit", {"cwd": str(self.root), "session_id": session, "prompt": text})
+
+    def test_session_start_injects_nothing(self):
+        self.assertEqual(run_hook("SessionStart", {"cwd": str(self.root), "session_id": "s1"}), {})
+
+    def test_short_question_gets_no_context(self):
+        self.assertEqual(self.prompt("what does x do?"), {})
+        self.assertFalse((self.root / ".ross").exists())
+
+    def test_automatic_memory_and_resume(self):
+        for i in range(3):
+            (self.root / f"m{i}.py").write_text(f"def f{i}():\n    return {i}\n")
+        subprocess.run("git add -A && git commit -qm more", shell=True, cwd=self.root, check=True)
+        self.prompt("Add a currency field to the invoice model and update all the tests")
+        (self.root / "m1.py").write_text("def f1():\n    return 11\n")
+        run_hook("Stop", {"cwd": str(self.root), "session_id": "s1",
+                          "last_assistant_message": "Added currency to m1.\nNext: wire currency into the export"})
+        st = ross.state(ross.Store(self.root))
+        self.assertTrue(st["goal"].startswith("Add a currency"))
+        self.assertEqual(st["next"], "wire currency into the export")
+        self.assertIn("m1.py", st["changed"])
+        raw = "".join(p.read_text() for p in (self.root / ".ross").glob("*.json*"))
+        self.assertNotIn("transcript", raw.lower())
+        ctx = self.prompt("Continue.", session="s2")["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("Goal: Add a currency", ctx)
+        self.assertIn("Next: wire currency", ctx)
+        self.assertIn("m1.py", ctx)
+        self.assertIn("f2@1", ctx)  # repo symbol map
+        self.assertLess(len(ctx) / 4, 1200)
+        self.assertEqual(self.prompt("Continue.", session="s2"), {})  # only once per session
+
+    def test_large_output_compressed_and_retrievable(self):
+        log = "\n".join(f"tests/test_x.py::test_{i} PASSED" for i in range(400))
+        log += "\nFAILED tests/test_x.py::test_9 - assert 1 == 2\nE   assert 1 == 2\n==== 1 failed, 399 passed in 1.2s ===="
+        r = run_hook("PostToolUse", {"cwd": str(self.root), "session_id": "s1", "tool_name": "Bash",
+                                     "tool_input": {"command": "python3 -m pytest -v"},
+                                     "tool_response": {"stdout": log, "stderr": "", "exit_code": 1}})
+        view = r["hookSpecificOutput"]["updatedToolOutput"]
+        self.assertLess(len(view), len(log) / 5)
+        self.assertIn("FAILED tests/test_x.py::test_9", view)
+        self.assertIn("1 failed, 399 passed", view)
+        aid = re.search(r"artifact (\w+)", view).group(1)
+        self.assertEqual(ross.artifact_view(self.store, aid), log)
+        self.assertIn("test_9", ross.artifact_view(self.store, aid, grep="FAILED"))
+        small = run_hook("PostToolUse", {"cwd": str(self.root), "session_id": "s1", "tool_name": "Bash",
+                                         "tool_input": {"command": "ls"}, "tool_response": {"stdout": "a.py", "exit_code": 0}})
+        self.assertEqual(small, {})  # small output passes through unchanged
+
+    def test_artifact_secret_redaction_and_pruning(self):
+        aid = ross.store_artifact(self.store, "token=" + "Z" * 30 + "\n" + "x" * 5000)
+        self.assertNotIn("Z" * 30, ross.artifact_view(self.store, aid))
+        self.assertEqual(ross.prune_artifacts(self.store, 0), 1)
+        self.assertIn("not found", ross.artifact_view(self.store, aid))
+
+    def test_reread_of_changed_file_returns_diff(self):
+        f = self.root / "big.py"
+        f.write_text("".join(f"def f{i}():\n    return {i}\n\n" for i in range(200)))
+        subprocess.run("git add -A && git commit -qm big", shell=True, cwd=self.root, check=True)
+        p = {"cwd": str(self.root), "session_id": "s1", "tool_name": "Read", "tool_input": {"file_path": str(f)},
+             "tool_response": {"type": "text", "file": {"content": f.read_text()}}}
+        self.assertEqual(run_hook("PostToolUse", p), {})
+        f.write_text(f.read_text().replace("return 7\n", "return 777\n"))
+        p["tool_response"] = {"type": "text", "file": {"content": f.read_text()}}
+        view = run_hook("PostToolUse", p)["hookSpecificOutput"]["updatedToolOutput"]
+        self.assertIn("+    return 777", view)
+        self.assertLess(len(view), len(f.read_text()) / 5)
 
     def test_usage_is_measured_from_transcript(self):
         t = self.root / "t.jsonl"

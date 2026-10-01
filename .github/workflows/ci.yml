@@ -45,6 +45,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install "git+https://github.com/agentskills/agentskills.git@69ef37e9424c0a7ea9dd2293b559e43ec8176379#subdirectory=skills-ref"
-      - run: python3 scripts/package.py --version 1.1.0 --sha "$GITHUB_SHA" --output dist
-      - run: unzip -q dist/ross-v1.1.0.zip -d /tmp/ross-standard
+      - run: python3 scripts/package.py --version 1.2.0 --sha "$GITHUB_SHA" --output dist
+      - run: unzip -q dist/ross-v1.2.0.zip -d /tmp/ross-standard
       - run: skills-ref validate /tmp/ross-standard/ross
