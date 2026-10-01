@@ -53,7 +53,7 @@ class Memory:
         key = lambda i: (-(i.id in hits), -TRUST[i.provenance], -i.verified)
         return sorted(current, key=key)[:limit], sorted(stale, key=key)[:limit]
 
-    def state_block(self, scopes, terms=None, budget_chars=1600):
+    def state_block(self, scopes, terms=None, budget_chars=1600, include_git=True):
         """Compact continuation state. Model summaries are labelled; stale evidence is reported as stale, never as current."""
         current, stale = self.recall(scopes, terms=terms)
         by = {}
@@ -72,7 +72,7 @@ class Memory:
             lines.append("Last session ended with (model summary): " + i.value.replace("\n", " ")[-480:])
         for i in [s for s in stale if s.type == "test_result"][:3]:
             lines.append(f"Stale, rerun before relying on it (files changed since): {i.value}")
-        g = evidence.git_identity(self.root)
+        g = evidence.git_identity(self.root) if include_git else {}
         if g:
             d = g["dirty"]
             lines.append(f"Git: {g['branch']} @ {g['sha']}" + (f"; uncommitted: {', '.join(d[:12])}" if d else "; clean"))
