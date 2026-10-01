@@ -3,7 +3,7 @@ Set-StrictMode -Version Latest
 
 $Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 $TempRoot = Join-Path ([IO.Path]::GetTempPath()) "ross-windows.$([guid]::NewGuid().ToString('N'))"
-$Version = "1.0.0"
+$Version = "1.1.0"
 $Sha = (git -C $Root rev-parse HEAD).Trim()
 
 try {

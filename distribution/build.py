@@ -31,8 +31,13 @@ HOSTS = {
 SKIP_DIRS = {"__pycache__"}
 
 
+def norm(path: Path) -> bytes:
+    """Bytes with CRLF normalized, so Windows checkouts verify identically."""
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
 def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashlib.sha256(norm(path)).hexdigest()
 
 
 def hooks_json(matcher):
@@ -91,9 +96,9 @@ def check():
         for extra in sorted(actual - set(files)):
             problems.append(f"{host}: unexpected packaged file: {extra}")
         hj = spec["pkg"] / "hooks" / "hooks.json"
-        if not hj.is_file() or hj.read_text() != hooks_json(spec["matcher"]):
+        if not hj.is_file() or norm(hj).decode() != hooks_json(spec["matcher"]):
             problems.append(f"{host}: hooks/hooks.json is not the generated version")
-        if (spec["pkg"] / "LICENSE").read_bytes() != (ROOT / "LICENSE").read_bytes():
+        if norm(spec["pkg"] / "LICENSE") != norm(ROOT / "LICENSE"):
             problems.append(f"{host}: plugin LICENSE differs from canonical")
         for forbidden in (".mcp.json", "bin", "agents", "commands", ".lsp.json"):
             if (spec["pkg"] / forbidden).exists():
