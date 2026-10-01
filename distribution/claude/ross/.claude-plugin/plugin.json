@@ -10,6 +10,10 @@
   },
   "homepage": "https://github.com/TGFounder/ROSS",
   "repository": "https://github.com/TGFounder/ROSS",
+  "documentationUrl": "https://github.com/TGFounder/ROSS/blob/distribution/claude-directory-v1.0.0/distribution/claude/ross/README.md",
+  "privacyPolicyUrl": "https://github.com/TGFounder/ROSS/blob/distribution/claude-directory-v1.0.0/distribution/claude/ross/PRIVACY.md",
+  "supportUrl": "https://github.com/TGFounder/ROSS/blob/distribution/claude-directory-v1.0.0/distribution/claude/ross/SUPPORT.md",
+  "termsOfServiceUrl": "https://github.com/TGFounder/ROSS/blob/distribution/claude-directory-v1.0.0/distribution/claude/ross/LICENSE",
   "license": "Apache-2.0",
   "keywords": ["governance", "authorization", "verification", "evidence", "agent-safety", "productivity"]
 }

@@ -62,16 +62,22 @@ README under "Examples".
 - Four acknowledgements: to be read and selected by the submitter in the
   portal.
 
-## Optional or not applicable
+## Links
 
-- Privacy policy URL: not required. The policy requires one for software that
-  collects user data or connects to a remote service; ROSS does neither.
-- Support channel: rahul@trustgraphed.com and GitHub private vulnerability
-  reporting on the repository. No separate support URL is published.
+Set in `plugin.json` and shown in the listing. All point to files on the
+tracked branch.
+
+- Privacy policy: `PRIVACY.md`
+- Support: `SUPPORT.md` (email rahul@trustgraphed.com, GitHub issues, and
+  GitHub private vulnerability reporting for security)
+- Documentation: `README.md`
+- Terms of service: `LICENSE` (Apache License 2.0, unmodified)
+- Homepage and repository: https://github.com/TGFounder/ROSS
+
+## Not applicable
+
 - Testing account with sample data: not applicable. ROSS has no service or
   account to test against.
-- Icon or logo: the current plugin listing reads no icon field from
-  `plugin.json`.
 
 ## Known limitations to state honestly
 

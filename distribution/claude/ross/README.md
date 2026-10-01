@@ -89,10 +89,16 @@ scripts, hooks, MCP servers, executables, or network configuration.
 
 ## Support
 
-Email rahul@trustgraphed.com for product questions. Report security
-vulnerabilities through GitHub private vulnerability reporting on
-https://github.com/TGFounder/ROSS, as described in the repository's
+See [SUPPORT.md](SUPPORT.md). Email rahul@trustgraphed.com for product
+questions, or open an issue at https://github.com/TGFounder/ROSS/issues.
+Report security vulnerabilities through GitHub private vulnerability reporting
+on https://github.com/TGFounder/ROSS, as described in the repository's
 `SECURITY.md`. Do not put secrets or exploit details in a public issue.
+
+## Privacy
+
+See [PRIVACY.md](PRIVACY.md). ROSS itself collects, stores, and transmits no
+data.
 
 ## License
 
