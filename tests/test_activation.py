@@ -30,7 +30,7 @@ class ActivationTest(unittest.TestCase):
     def trace_root(self, tmp):
         folder = Path(tmp) / "traces"
         folder.mkdir()
-        (folder / "run.txt").write_text("untrusted synthetic fixture\n", encoding="utf-8")
+        (folder / "run.txt").write_bytes(b"untrusted synthetic fixture\n")
         return tmp
 
     def test_corpus_has_controls(self):
