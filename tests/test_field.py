@@ -85,6 +85,13 @@ class FieldTrialsTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             field.assess(plan, [])
 
+    def test_task_definitions_cannot_change_after_planning(self):
+        tasks = [{"id": "task-a"}, {"id": "task-b"}]
+        field.check_taskset(self.plan, tasks)
+        tasks[0]["prompt"] = "changed"
+        with self.assertRaises(ValueError):
+            field.check_taskset(self.plan, tasks)
+
     def test_bad_task_ids(self):
         for tasks in ([], [{"id": "x"}, {"id": "x"}], [{"id": "../secret"}]):
             with self.assertRaises(ValueError):
