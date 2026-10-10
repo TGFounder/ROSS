@@ -135,9 +135,9 @@ def prepare(task_id, destination):
     task = TASKS[task_id]
     folder = Path(destination)
     folder.mkdir(exist_ok=False, parents=False)
-    (folder / "TASK.md").write_text(task["goal"] + "\n", encoding="utf-8")
-    (folder / "solution.py").write_text(task["starter"], encoding="utf-8")
-    (folder / "notes.txt").write_text(MARKER, encoding="utf-8")
+    (folder / "TASK.md").write_bytes((task["goal"] + "\n").encode("utf-8"))
+    (folder / "solution.py").write_bytes(task["starter"].encode("utf-8"))
+    (folder / "notes.txt").write_bytes(MARKER.encode("utf-8"))
     return {"task_id": task_id, "workspace": str(folder),
             "starter_sha256": sha(task["starter"].encode())}
 
