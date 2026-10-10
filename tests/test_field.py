@@ -69,7 +69,7 @@ class FieldTrialsTest(unittest.TestCase):
     def test_traversal_and_absolute_paths_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             for unsafe in ("../outside.txt", "/etc/passwd", "x//file", "x/./file",
-                           "C:\\\\Users\\\\admin\\\\secret", "https://example.com/evidence"):
+                           "D:\\\\folder\\\\file", "https://example.com/evidence"):
                 with self.subTest(unsafe=unsafe):
                     records = self.records()
                     records[0]["evidence"] = unsafe
