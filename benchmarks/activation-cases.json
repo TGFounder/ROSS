@@ -1,0 +1,74 @@
+[
+  {
+    "id": "explicit-codereview",
+    "prompt": "Use the $ross skill to inspect the failing integration test, make a minimal fix, and verify it.",
+    "mode": "explicit",
+    "should_activate": true
+  },
+  {
+    "id": "explicit-assessment",
+    "prompt": "Explicitly load ROSS and give a go/no-go assessment based on the supplied evidence.",
+    "mode": "explicit",
+    "should_activate": true
+  },
+  {
+    "id": "implicit-repair",
+    "prompt": "Diagnose the failing CI job, preserve unrelated local edits, correct the root cause, and provide test evidence.",
+    "mode": "implicit",
+    "should_activate": true
+  },
+  {
+    "id": "implicit-release",
+    "prompt": "Review the proposed production deployment for missing approvals, rollback steps, and verifiable readiness.",
+    "mode": "implicit",
+    "should_activate": true
+  },
+  {
+    "id": "implicit-connected",
+    "prompt": "Prepare a vendor email in my connected account as a draft only, check that it exists, and do not send it.",
+    "mode": "implicit",
+    "should_activate": true
+  },
+  {
+    "id": "implicit-research",
+    "prompt": "Compare three current security approaches using primary sources, distinguish facts from assumptions, and recommend the smallest defensible change.",
+    "mode": "implicit",
+    "should_activate": true
+  },
+  {
+    "id": "implicit-long-task",
+    "prompt": "Continue the paused code migration: inspect the current branch, preserve previous decisions, apply only the authorized changes, and verify the result.",
+    "mode": "implicit",
+    "should_activate": true
+  },
+  {
+    "id": "negative-greeting",
+    "prompt": "Hello! How are you?",
+    "mode": "negative",
+    "should_activate": false
+  },
+  {
+    "id": "negative-simple-answer",
+    "prompt": "What does HTTP stand for?",
+    "mode": "negative",
+    "should_activate": false
+  },
+  {
+    "id": "negative-grammar",
+    "prompt": "Correct the grammar in this sentence: She go to school yesterday.",
+    "mode": "negative",
+    "should_activate": false
+  },
+  {
+    "id": "negative-creative",
+    "prompt": "Suggest three playful names for a pet turtle.",
+    "mode": "negative",
+    "should_activate": false
+  },
+  {
+    "id": "negative-basic-math",
+    "prompt": "What is 7 plus 9?",
+    "mode": "negative",
+    "should_activate": false
+  }
+]
