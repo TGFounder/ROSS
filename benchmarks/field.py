@@ -32,6 +32,16 @@ def task_ids(tasks):
     return names
 
 
+def task_fingerprint(tasks):
+    task_ids(tasks)
+    return hashlib.sha256(json.dumps(tasks, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def check_taskset(plan, tasks):
+    if task_ids(tasks) != plan.get("task_ids") or task_fingerprint(tasks) != plan.get("task_set_sha256"):
+        raise ValueError("task definitions changed since the plan was created")
+
+
 def make_plan(tasks, repeats, seed):
     names = task_ids(tasks)
     if not isinstance(repeats, int) or isinstance(repeats, bool) or not 1 <= repeats <= 100:
@@ -53,7 +63,7 @@ def make_plan(tasks, repeats, seed):
                 "condition": condition,
                 "order": order,
             })
-    fingerprint = hashlib.sha256(json.dumps(tasks, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    fingerprint = task_fingerprint(tasks)
     return {"schema_version": 1, "task_set_sha256": fingerprint, "seed": seed,
             "repeats": repeats, "task_ids": names, "trials": trials}
 
@@ -197,6 +207,7 @@ def main():
     p.add_argument("--output", type=Path)
     p = commands.add_parser("assess", help="summarize independently run trials")
     p.add_argument("--plan", type=Path, required=True)
+    p.add_argument("--tasks", type=Path, required=True)
     p.add_argument("--observations", type=Path, required=True)
     p.add_argument("--output", type=Path)
     args = parser.parse_args()
@@ -204,7 +215,9 @@ def main():
         if args.command == "plan":
             result = make_plan(load_json(args.tasks), args.repeats, args.seed)
         else:
-            result = assess(load_json(args.plan), load_json(args.observations))
+            plan = load_json(args.plan)
+            check_taskset(plan, load_json(args.tasks))
+            result = assess(plan, load_json(args.observations))
         write_json(result, args.output)
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
         raise SystemExit(f"FAIL: {exc}") from exc
