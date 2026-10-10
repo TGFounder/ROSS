@@ -6,6 +6,8 @@ from collections import Counter
 import hashlib
 import json
 import math
+import os
+import stat
 from pathlib import Path
 import random
 import re
@@ -15,6 +17,8 @@ ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}\Z")
 CONDITIONS = ("baseline", "ross")
 ACTIVATION = {"observed", "not-observed", "unknown", "not-applicable"}
 OPTIONAL_METRICS = ("cost_usd", "duration_seconds", "input_tokens", "output_tokens")
+MAX_EVIDENCE_BYTES = 8 * 1024 * 1024
+MAX_EVIDENCE_FILES = 512
 
 
 def load_json(path):
@@ -133,8 +137,58 @@ def validate_observations(plan, observations):
     return expected_ids, observed
 
 
-def assess(plan, observations):
+
+def hash_evidence(root, observations):
+    """Check local references and hash their bytes. Never interpret file contents."""
+    root = Path(root)
+    if root.is_symlink() or not root.is_dir():
+        raise ValueError("evidence root must be an existing, non-symlink directory")
+    root = root.resolve(strict=True)
+    references = set()
+    for record in observations:
+        references.add(record["evidence"])
+        if record["activation"] == "observed":
+            references.add(record["activation_evidence"])
+    if len(references) > MAX_EVIDENCE_FILES:
+        raise ValueError("too many evidence references")
+    manifest = []
+    for ref in sorted(references):
+        if not isinstance(ref, str) or ref != ref.strip() or "\\" in ref or not ref:
+            raise ValueError("invalid evidence reference")
+        parts = ref.split("/")
+        if any(part in ("", ".", "..") for part in parts):
+            raise ValueError("absolute, empty, or traversing evidence path")
+        if not re.fullmatch(r"[A-Za-z0-9._/+@-]+", ref):
+            raise ValueError("evidence paths must use portable relative characters")
+        current = root
+        for idx, part in enumerate(parts):
+            current = current / part
+            info = current.lstat()
+            if stat.S_ISLNK(info.st_mode):
+                raise ValueError("symlink in evidence path")
+            if idx < len(parts) - 1 and not stat.S_ISDIR(info.st_mode):
+                raise ValueError("non-directory evidence path component")
+            if idx == len(parts) - 1 and not stat.S_ISREG(info.st_mode):
+                raise ValueError("evidence reference is not a regular file")
+        flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
+        descriptor = os.open(current, flags)
+        with os.fdopen(descriptor, "rb") as handle:
+            size = os.fstat(handle.fileno()).st_size
+            if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode) or size > MAX_EVIDENCE_BYTES:
+                raise ValueError("evidence is not a regular file or is too large")
+            digest = hashlib.sha256()
+            while True:
+                chunk = handle.read(65536)
+                if not chunk:
+                    break
+                digest.update(chunk)
+        manifest.append({"path": ref, "sha256": digest.hexdigest(), "bytes": size})
+    return manifest
+
+
+def assess(plan, observations, evidence_root=None):
     trials, observed = validate_observations(plan, observations)
+    manifest = hash_evidence(evidence_root, list(observed.values())) if evidence_root is not None else None
     summaries = {}
     for condition in CONDITIONS:
         subset = [r for identifier, r in observed.items() if trials[identifier]["condition"] == condition]
@@ -170,6 +224,8 @@ def assess(plan, observations):
         status = "incomplete"
     elif summaries["ross"]["activation"].get("observed", 0) != len(trials) // 2:
         status = "activation-unverified"
+    elif manifest is None:
+        status = "evidence-unverified"
     elif pair_counts[(False, True)] > pair_counts[(True, False)]:
         status = "preliminary-positive-signal"
     elif pair_counts[(False, True)] < pair_counts[(True, False)]:
@@ -178,7 +234,11 @@ def assess(plan, observations):
         status = "no-demonstrated-advantage"
     return {
         "schema_version": 1,
-        "evidence_level": "operator-recorded; references are not independently validated",
+        "evidence_level": ("operator-recorded; evidence references were not checked"
+            if manifest is None else
+            "evidence files exist and are SHA-256 hashed; their contents, authorship, "
+            "test outcomes, and activation semantics are not independently verified"),
+        "evidence_manifest": manifest,
         "planned_trials": len(trials), "recorded_trials": len(observed), "complete": complete,
         "status": status, "conditions": summaries,
         "paired": {"both_pass": pair_counts[(True, True)], "baseline_only": pair_counts[(True, False)],
@@ -209,6 +269,8 @@ def main():
     p.add_argument("--plan", type=Path, required=True)
     p.add_argument("--tasks", type=Path, required=True)
     p.add_argument("--observations", type=Path, required=True)
+    p.add_argument("--evidence-root", type=Path,
+                   help="existing directory of local evidence files, required for a preliminary-positive signal")
     p.add_argument("--output", type=Path)
     args = parser.parse_args()
     try:
@@ -217,7 +279,7 @@ def main():
         else:
             plan = load_json(args.plan)
             check_taskset(plan, load_json(args.tasks))
-            result = assess(plan, load_json(args.observations))
+            result = assess(plan, load_json(args.observations), evidence_root=args.evidence_root)
         write_json(result, args.output)
     except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
         raise SystemExit(f"FAIL: {exc}") from exc

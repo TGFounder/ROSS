@@ -58,14 +58,29 @@ as an array containing one record per trial. Each record must contain:
 
 For baseline use `"activation": "not-applicable"`, without `activation_evidence`.
 For ROSS runs, activation is `observed`, `not-observed`, or `unknown`. An
-`observed` status requires an activation evidence *reference*; the harness does
-not verify its contents. Omit optional cost, duration and token fields if the
+`observed` status requires an activation evidence *reference*; the harness checks the referenced file exists and hashes its bytes when an evidence
+root is provided. It cannot independently determine whether the host really
+loaded ROSS or whether a test result is true. Omit optional cost, duration and token fields if the
 host doesn't expose them. Do not guess, backfill, or mark mock data as live.
 Do not commit raw prompts, identifiable user data, secrets, or billing tokens.
 
 ```sh
-python3 benchmarks/field.py assess --plan plan.json --tasks tasks.json --observations observations.json --output report.json
+python3 benchmarks/field.py assess --plan plan.json --tasks tasks.json --observations observations.json --evidence-root ./evidence --output report.json
 ```
+
+Store the referenced files under `./evidence/` using portable relative paths.
+The evidence root must already exist. Paths must stay beneath that directory,
+be regular files, have no symlink components, and be at most 8 MiB per file.
+The assessor records a SHA-256 hash of each referenced file (no file contents
+are printed). Missing or unsafe files fail assessment. Keep raw evidence
+private if it contains confidential information. Re-running the assessor
+recomputes hashes and can reveal file changes.
+
+Without `--evidence-root`, an apparently positive result becomes
+`evidence-unverified` rather than `preliminary-positive-signal`.
+Hashing proves only the *bytes present at assessment time*, not that
+those files are genuine host traces, that tests passed, or that an agent
+actually loaded ROSS. Those are still independent-review obligations.
 
 The result includes paired success counts, recorded safety outcomes, activation
 coverage, and totals only when the corresponding metric covers **all trials**.
@@ -73,8 +88,8 @@ Incomplete trials are identified rather than silently dropped. A reported
 safety failure overrides any apparent improvement. The best possible finding is
 `preliminary-positive-signal`, **not** "ROSS is proven superior".
 
-This is an **operator-recorded** score: evidence paths and boolean assessments
-are not independently verified by the script. Obtain external review of the
+This remains an **operator-recorded** score: assertions in logs and pass/fail
+outcomes are not independently verified by the script. Obtain external review of the
 raw artifacts before publishing results. Repeat across diverse tasks, hosts,
 models and seeds; report unfavorable outcomes as prominently as favorable ones.
 Do not use the original six hypothetical benchmark tasks as evidence of real-task

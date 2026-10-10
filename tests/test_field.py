@@ -1,5 +1,7 @@
 """Offline regression coverage for ROSS field-trial planning and assessment."""
+import hashlib
 import importlib.util
+import tempfile
 from pathlib import Path
 import unittest
 
@@ -29,10 +31,17 @@ class FieldTrialsTest(unittest.TestCase):
         self.assertEqual(len(field.validate_plan(self.plan)), 12)
 
     def test_positive_signal_not_claimed_proven(self):
-        report = field.assess(self.plan, self.records())
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / "artifact"
+            folder.mkdir()
+            (folder / "verified-test-log.txt").write_text("test evidence", encoding="utf-8")
+            (folder / "skill-load-log.txt").write_text("host trace", encoding="utf-8")
+            report = field.assess(self.plan, self.records(), evidence_root=tmp)
         self.assertEqual(report["status"], "preliminary-positive-signal")
         self.assertEqual(report["paired"]["ross_only"], 6)
         self.assertAlmostEqual(report["conditions"]["ross"]["cost_per_success_usd"], .02)
+        self.assertEqual(len(report["evidence_manifest"]), 2)
+        self.assertIn("not independently verified", report["evidence_level"])
         self.assertIn("No statistical superiority", report["conclusion"])
 
     def test_incomplete_does_not_extrapolate_cost(self):
@@ -40,6 +49,68 @@ class FieldTrialsTest(unittest.TestCase):
         self.assertEqual(report["status"], "incomplete")
         self.assertIsNone(report["conditions"]["baseline"]["total_cost_usd"])
         self.assertIsNone(report["conditions"]["ross"]["total_cost_usd"])
+
+    def test_unchecked_evidence_blocks_positive_signal(self):
+        report = field.assess(self.plan, self.records())
+        self.assertEqual(report["status"], "evidence-unverified")
+        self.assertIsNone(report["evidence_manifest"])
+
+    def test_missing_or_directory_evidence_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(OSError):
+                field.assess(self.plan, self.records(), evidence_root=tmp)
+            folder = Path(tmp) / "artifact"
+            folder.mkdir()
+            (folder / "verified-test-log.txt").mkdir()
+            (folder / "skill-load-log.txt").write_text("trace")
+            with self.assertRaises(ValueError):
+                field.assess(self.plan, self.records(), evidence_root=tmp)
+
+    def test_traversal_and_absolute_paths_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            for unsafe in ("../outside.txt", "/etc/passwd", "x//file", "x/./file",
+                           "D:\\\\folder\\\\file", "https://example.com/evidence"):
+                with self.subTest(unsafe=unsafe):
+                    records = self.records()
+                    records[0]["evidence"] = unsafe
+                    with self.assertRaises((OSError, ValueError)):
+                        field.assess(self.plan, records, evidence_root=tmp)
+
+    def test_symlinks_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / "artifact"
+            folder.mkdir()
+            (folder / "verified-test-log.txt").write_text("test")
+            try:
+                (folder / "skill-load-log.txt").symlink_to("verified-test-log.txt")
+            except (OSError, NotImplementedError):
+                self.skipTest("symlink creation unavailable")
+            with self.assertRaises(ValueError):
+                field.assess(self.plan, self.records(), evidence_root=tmp)
+
+    def test_hash_detects_changed_artifact(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / "artifact"
+            folder.mkdir()
+            a = folder / "verified-test-log.txt"
+            a.write_bytes(b"actual test log")
+            (folder / "skill-load-log.txt").write_bytes(b"host observed")
+            one = field.assess(self.plan, self.records(), evidence_root=tmp)
+            self.assertEqual(one["status"], "preliminary-positive-signal")
+            self.assertEqual(one["evidence_manifest"][0]["sha256"],
+                             hashlib.sha256(b"host observed").hexdigest() if one["evidence_manifest"][0]["path"].endswith("skill-load-log.txt") else hashlib.sha256(b"actual test log").hexdigest())
+            a.write_bytes(b"changed log")
+            two = field.assess(self.plan, self.records(), evidence_root=tmp)
+            self.assertNotEqual(one["evidence_manifest"], two["evidence_manifest"])
+
+    def test_evidence_size_limit(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            folder = Path(tmp) / "artifact"
+            folder.mkdir()
+            (folder / "verified-test-log.txt").write_bytes(b"a" * (field.MAX_EVIDENCE_BYTES + 1))
+            (folder / "skill-load-log.txt").write_bytes(b"trace")
+            with self.assertRaises(ValueError):
+                field.assess(self.plan, self.records(), evidence_root=tmp)
 
     def test_missing_measurement_never_claimed(self):
         records = self.records()
