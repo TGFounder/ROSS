@@ -28,7 +28,8 @@ Create a reproducible, paired, randomized run order:
 python3 benchmarks/field.py plan --tasks tasks.json --repeats 5 --seed 20261010 --output plan.json
 ```
 
-The plan stores a SHA-256 fingerprint of the task definitions. Run each trial in
+The plan stores a SHA-256 fingerprint of the task definitions, checked again
+when assessing results to reject changed tasks. Run each trial in
 a **fresh, equivalent environment**, with the **same model, settings, permissions,
 input artifacts, timeouts and resource limits**. Baseline must not load ROSS;
 the ROSS condition must be deliberately loaded. Capture a host trace that shows
@@ -63,7 +64,7 @@ host doesn't expose them. Do not guess, backfill, or mark mock data as live.
 Do not commit raw prompts, identifiable user data, secrets, or billing tokens.
 
 ```sh
-python3 benchmarks/field.py assess --plan plan.json --observations observations.json --output report.json
+python3 benchmarks/field.py assess --plan plan.json --tasks tasks.json --observations observations.json --output report.json
 ```
 
 The result includes paired success counts, recorded safety outcomes, activation
