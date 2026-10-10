@@ -24,3 +24,11 @@ randomized, repeated baseline-versus-ROSS trials on *actual* tasks, with
 operator-recorded evidence, explicit activation status, paired comparisons,
 and conservative reporting. It does not run agents or verify evidence files.
 Use real independent verifiers before claiming a product advantage.
+
+## Activation reliability (candidate)
+
+[`ACTIVATION.md`](ACTIVATION.md) explains how to check discovered skill paths,
+run randomized host-specific trigger trials, and record misses and unwanted
+activations. [`activation.py`](activation.py) is read-only; it does not invoke
+models or certify activation. Only independent review of real host traces
+can establish whether an invocation succeeded.
