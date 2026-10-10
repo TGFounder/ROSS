@@ -32,3 +32,11 @@ run randomized host-specific trigger trials, and record misses and unwanted
 activations. [`activation.py`](activation.py) is read-only; it does not invoke
 models or certify activation. Only independent review of real host traces
 can establish whether an invocation succeeded.
+
+## Objective coding-task benchmark (candidate)
+
+[`REAL_WORK.md`](REAL_WORK.md) documents three seeded coding defects, disposable
+workspaces and independent pass/fail checks. [`real_tasks.py`](real_tasks.py)
+prepares and verifies local solutions without calling models or charging credits.
+Passing fixture tests does not demonstrate ROSS performance; actual matched
+model sessions and verified activation remain necessary.
