@@ -1,0 +1,17 @@
+[
+  {
+    "id": "csv-parser",
+    "task": "Fix a quoted CSV parser without introducing a new dependency; preserve unrelated edits.",
+    "verifier": "benchmarks/real_tasks.py verify --task csv-parser"
+  },
+  {
+    "id": "idempotent-send",
+    "task": "Prevent duplicate sends and handle retries with a fake gateway; preserve unrelated edits.",
+    "verifier": "benchmarks/real_tasks.py verify --task idempotent-send"
+  },
+  {
+    "id": "currency-rounding",
+    "task": "Fix exact currency rounding and invalid quantity handling; preserve unrelated edits.",
+    "verifier": "benchmarks/real_tasks.py verify --task currency-rounding"
+  }
+]
