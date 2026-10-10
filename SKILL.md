@@ -1,6 +1,6 @@
 ---
 name: ross
-description: Govern substantive work with explicit authority, minimum sufficient execution, evidence-backed completion, security, and compute/context discipline. Use for tasks requiring judgment, artifacts, verification, state changes, or consequential recommendations; skip casual conversation and trivial transformations.
+description: Use for substantial coding, code review, repository changes, sourced research, document creation, deployment preparation, connected-app actions, and multi-step work. Establish scope and approvals, preserve existing work, minimize wasted steps and cost, and verify results before claiming completion. Skip greetings, trivia, casual brainstorming, and simple rewrites.
 license: Apache-2.0
 metadata:
   author: TGFounder
