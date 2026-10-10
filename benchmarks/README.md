@@ -16,3 +16,11 @@ and [`methodology-v2.md`](methodology-v2.md); it does not rewrite v1 evidence.
 
 No cost or credit estimate is reported unless the runner exposes it. Results
 that do not favor ROSS remain in the report.
+
+## Real task evaluation (candidate)
+
+[`FIELD.md`](FIELD.md) describes the dependency-free `field.py` tool for
+randomized, repeated baseline-versus-ROSS trials on *actual* tasks, with
+operator-recorded evidence, explicit activation status, paired comparisons,
+and conservative reporting. It does not run agents or verify evidence files.
+Use real independent verifiers before claiming a product advantage.
